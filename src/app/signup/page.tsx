@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 function makePassword() {
@@ -36,7 +37,7 @@ export default function SignupPage() {
     finally { setBusy(false); }
   }
   return <main className="auth-shell"><section className="auth-card">
-    <a href="/" className="auth-brand">ORBITA</a><p className="eyebrow">START YOUR WORKSPACE</p>
+    <Link href="/" className="auth-brand">ORBITA</Link><p className="eyebrow">START YOUR WORKSPACE</p>
     <h1>إنشاء حساب شركتك</h1>
     <p className="auth-muted">شهر واحد وصول مجاني. لا بطاقة بنكية ولا خصم أو تجديد تلقائي.</p>
     <form onSubmit={submit} className="auth-form">
@@ -62,6 +63,6 @@ export default function SignupPage() {
       <button disabled={busy || password.length < 12}>{busy ? "جارٍ إنشاء الحساب..." : "إنشاء الحساب مجانًا"}</button>
     </form>
     {message && <p className="notice">{message}</p>}
-    <p className="auth-muted">لديك حساب؟ <a href="/login">تسجيل الدخول</a></p>
+    <p className="auth-muted">لديك حساب؟ <Link href="/login">تسجيل الدخول</Link></p>
   </section></main>;
 }
