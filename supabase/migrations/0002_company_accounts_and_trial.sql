@@ -8,7 +8,6 @@ alter table public.organizations
   add column if not exists trial_ends_at timestamptz not null default (now() + interval '5 months'),
   add column if not exists features_enabled boolean not null default true;
 
--- Existing organizations receive a stable username based on their name and ID.
 update public.organizations
 set username = coalesce(nullif(username,''),
   coalesce(nullif(trim(both '-' from regexp_replace(lower(name), '[[:space:][:punct:]]+', '-', 'g')),''),'company')
@@ -20,7 +19,6 @@ create unique index if not exists organizations_username_unique
 create index if not exists organizations_trial_ends_idx
   on public.organizations (trial_ends_at);
 
--- Keep subscription controls owner-only: ordinary company owners cannot edit access state.
 create or replace function public.protect_subscription_fields()
 returns trigger language plpgsql security definer set search_path=public
 as $$
@@ -36,6 +34,7 @@ begin
   return new;
 end;
 $$;
+revoke all on function public.protect_subscription_fields() from public, anon, authenticated;
 drop trigger if exists protect_subscription_fields_trigger on public.organizations;
 create trigger protect_subscription_fields_trigger
 before update on public.organizations
@@ -76,8 +75,8 @@ begin
   return new;
 end;
 $$;
+revoke all on function public.handle_new_user() from public, anon, authenticated;
 
--- Admins can see all workspaces; customer isolation remains enforced by RLS.
 drop policy if exists "org members read org" on public.organizations;
 create policy "org members read org" on public.organizations
 for select using (public.is_org_member(id) or public.is_platform_admin());
