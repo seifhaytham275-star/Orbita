@@ -1,0 +1,11 @@
+import { NextResponse } from "next/server";
+import { adminClient, getSession } from "@/lib/admin";
+export const dynamic="force-dynamic";
+export async function GET(){const session=await getSession();if(!session)return NextResponse.json({error:"Unauthorized"},{status:401});try{const db=adminClient();const [orgs,payments,tasks,logs,approvals,users]=await Promise.all([
+db.from("organizations").select("id,name,industry,username,subscription_status,plan_code,subscription_started_at,subscription_ends_at,created_at").order("created_at",{ascending:false}).limit(200),
+db.from("payment_submissions").select("id,organization_id,user_id,method,amount,currency,status,customer_reference,plan_code,billing_period_months,created_at").order("created_at",{ascending:false}).limit(200),
+db.from("agent_tasks").select("id,organization_id,agent_name,title,status,created_at").order("created_at",{ascending:false}).limit(500),
+db.from("audit_logs").select("id,organization_id,actor_id,action,target_type,target_id,metadata,created_at").order("created_at",{ascending:false}).limit(200),
+db.from("agent_approvals").select("id,organization_id,task_id,requested_action,status,created_at").order("created_at",{ascending:false}).limit(200),
+db.auth.admin.listUsers({page:1,perPage:100})
+]);const errors=[orgs.error,payments.error,tasks.error,logs.error,approvals.error,users.error].filter(Boolean);if(errors.length)throw new Error("تعذر تحميل كل بيانات الإدارة");const paid=(payments.data||[]).filter(p=>p.status==="paid");const revenue=paid.reduce((s,p)=>s+Number(p.amount),0);const usageByAgent=(tasks.data||[]).reduce((acc,t)=>{acc[t.agent_name]=(acc[t.agent_name]||0)+1;return acc;},{} as Record<string,number>);return NextResponse.json({admin:session.username,stats:{businesses:orgs.data?.length||0,users:users.data.users.length,pendingPayments:(payments.data||[]).filter(p=>p.status==="pending_review").length,revenue,agentTasks:tasks.data?.length||0,pendingApprovals:(approvals.data||[]).filter(a=>a.status==="pending").length},organizations:orgs.data||[],payments:payments.data||[],tasks:tasks.data||[],logs:logs.data||[],approvals:approvals.data||[],users:(users.data.users||[]).map(u=>({id:u.id,email:u.email,created_at:u.created_at,banned_until:u.banned_until||null})),usageByAgent});}catch{return NextResponse.json({error:"حدث خطأ أثناء تحميل لوحة الإدارة."},{status:503});}}
