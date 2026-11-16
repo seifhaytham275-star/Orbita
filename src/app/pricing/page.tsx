@@ -7,7 +7,7 @@ export default function PricingPage() {
     <section className="pricing-hero">
       <p className="eyebrow">FREE LAUNCH ACCESS</p>
       <h1>ابدأ مع Orbita، <span>من غير تكلفة.</span></h1>
-      <p>خلال مرحلة الإطلاق، الوصول مجاني لمدة 5 أشهر لكل شركة. لا نطلب بطاقة بنكية ولا نفعّل خصمًا أو تجديدًا تلقائيًا.</p>
+      <p>خلال مرحلة الإطلاق، الوصول مجاني لمدة شهر واحد لكل شركة. لا نطلب بطاقة بنكية ولا نفعّل خصمًا أو تجديدًا تلقائيًا.</p>
       <span className="pricing-disclaimer">لا توجد باقات مدفوعة أو تحصيل اشتراكات مفعّل في الوقت الحالي.</span>
     </section>
     <section className="pricing-grid" aria-label="الخطة الحالية">
@@ -16,7 +16,7 @@ export default function PricingPage() {
         <h2>Orbita Free</h2>
         <p className="plan-description">مساحة موحدة لتنظيم أعمال شركتك وتجربة الأدوات المتاحة أثناء الإطلاق.</p>
         <div className="plan-price"><strong>0</strong><span>جنيه</span></div>
-        <p className="annual-price">مجانًا لمدة 5 أشهر</p>
+        <p className="annual-price">مجانًا لمدة شهر واحد</p>
         <ul>
           <li>حساب شركة واحد يعمل من الموبايل واللابتوب</li>
           <li>لوحة تحكم عربية واتجاه RTL</li>
