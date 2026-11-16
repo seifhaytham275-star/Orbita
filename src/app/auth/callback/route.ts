@@ -2,8 +2,15 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function safeNextPath(value: string | null): string {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/dashboard";
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
+    return "/dashboard";
+  }
   return value;
+}
+
+function confirmationFailure(origin: string) {
+  // Keep redirect targets ASCII-only; never copy provider-supplied text into headers.
+  return NextResponse.redirect(new URL("/login?error=email_confirmation_failed", origin));
 }
 
 export async function GET(request: NextRequest) {
@@ -11,16 +18,14 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get("code");
   const next = safeNextPath(requestUrl.searchParams.get("next"));
 
-  if (code) {
+  if (!code) return confirmationFailure(requestUrl.origin);
+
+  try {
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) return NextResponse.redirect(new URL(next, requestUrl.origin));
+    if (error) return confirmationFailure(requestUrl.origin);
+    return NextResponse.redirect(new URL(next, requestUrl.origin));
+  } catch {
+    return confirmationFailure(requestUrl.origin);
   }
-
-  const errorCode = requestUrl.searchParams.get("error_code");
-  const errorDescription = requestUrl.searchParams.get("error_description");
-  const message = errorDescription || errorCode || "تعذر تأكيد البريد الإلكتروني. اطلب رسالة تأكيد جديدة وحاول مرة أخرى.";
-  const loginUrl = new URL("/login", requestUrl.origin);
-  loginUrl.searchParams.set("message", message);
-  return NextResponse.redirect(loginUrl);
 }
