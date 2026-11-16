@@ -35,7 +35,7 @@ export default function AdminLoginPage() {
     <Link href="/" className="auth-brand">ORBITA</Link>
     <p className="eyebrow">PRIVATE PLATFORM ACCESS</p>
     <h1>دخول الأدمن</h1>
-    <p className="auth-muted">صفحة مستقلة لإدارة منصة Orbita. لا تستخدم بريدًا إلكترونيًا.</p>
+    <p className="auth-muted">استخدم اسم المستخدم وكلمة المرور اللذين أنشأتهما. لا يوجد تسجيل بالبريد الإلكتروني.</p>
     {message && <p className="notice">{message}</p>}
     <form onSubmit={submit} className="auth-form">
       <label>اسم المستخدم<input value={username} onChange={event=>setUsername(event.target.value)} autoComplete="username" required maxLength={64}/></label>
