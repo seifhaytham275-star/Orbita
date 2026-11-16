@@ -18,7 +18,7 @@ export default function Home() {
         <p className="eyebrow">YOUR BUSINESS, IN ORBIT</p>
         <h1>إدارة شغلك، <span>بذكاء.</span></h1>
         <p className="intro">مساحة واحدة تساعدك تدير عمليات شركتك، وتتابع التفاصيل من غير ما تتوه بين أدوات كتير.</p>
-        <div className="actions"><a className="primary" href="/signup">ابدأ مجانًا لمدة 5 أشهر</a><a className="secondary" href="#agents">استكشف الوكلاء</a></div>
+        <div className="actions"><a className="primary" href="/signup">ابدأ مجانًا لمدة شهر واحد</a><a className="secondary" href="#agents">استكشف الوكلاء</a></div>
         <p className="device-note">حساب واحد يعمل من الموبايل واللابتوب، بنفس بيانات الدخول. لا بطاقة بنكية ولا تجديد تلقائي.</p>
       </section>
       <section id="agents" className="section">
@@ -30,7 +30,7 @@ export default function Home() {
         </div>
       </section>
       <section className="pricing-teaser">
-        <div><p className="eyebrow">FREE LAUNCH</p><h2>ابدأ من غير تكلفة.</h2><p>5 أشهر وصول مجاني خلال مرحلة الإطلاق، بدون إدخال وسيلة دفع أو خصم تلقائي.</p></div>
+        <div><p className="eyebrow">FREE LAUNCH</p><h2>ابدأ من غير تكلفة.</h2><p>شهر واحد وصول مجاني خلال مرحلة الإطلاق، بدون إدخال وسيلة دفع أو خصم تلقائي.</p></div>
         <a className="secondary" href="/pricing">تفاصيل الخطة المجانية</a>
       </section>
       <footer>© {new Date().getFullYear()} Orbita. Built for growing businesses.</footer>
