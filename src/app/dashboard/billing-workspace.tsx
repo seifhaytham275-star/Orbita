@@ -11,7 +11,7 @@ export default function BillingWorkspace({ organizationId }: { organizationId: s
   const [reference,setReference]=useState("");
   const [message,setMessage]=useState("");
   const [busy,setBusy]=useState(false);
-  const [receiver,setReceiver]=useState("01117770325");\n  const [history,setHistory]=useState<Array<{id:string;status:string;amount:number;plan_code:string;created_at:string}>>([]);
+  const [receiver,setReceiver]=useState("01117770325");
   const [history,setHistory]=useState<Array<{id:string;status:string;amount:number;plan_code:string;created_at:string}>>([]);
   useEffect(()=>{let live=true;fetch("/api/payments").then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error||"تعذر تحميل الاشتراكات");if(!live)return;setPlans(d.plans||[]);setOrgs(d.organizations||[]);setHistory(d.payments||[]);setReceiver(d.instapay?.receiverIdentifier||"01117770325");}).catch(e=>live&&setMessage(e.message));return()=>{live=false}},[]);
   const orgId=organizationId || orgs[0]?.organization_id || "";
@@ -28,6 +28,7 @@ export default function BillingWorkspace({ organizationId }: { organizationId: s
       <label>رقم مرجع التحويل<input value={reference} onChange={e=>setReference(e.target.value)} minLength={3} maxLength={160} required placeholder="رقم العملية الظاهر في InstaPay"/></label>
       <button disabled={busy||!plan||!reference.trim()}>{busy?"جارٍ تسجيل الطلب...":"إرسال طلب مراجعة الدفع"}</button>
     </form>
-    {message&&<p className="notice">{message}</p>}\n    <h3>سجل عمليات الدفع</h3><ul>{history.map(p=><li key={p.id}>{p.plan_code} · {p.amount} جنيه · {p.status==="pending_review"?"قيد المراجعة":p.status==="paid"?"تم التأكيد":p.status==="rejected"?"مرفوض":p.status} · {new Date(p.created_at).toLocaleDateString("ar-EG")}</li>)}</ul>
+    {message&&<p className="notice">{message}</p>}
+    <h3>سجل عمليات الدفع</h3><ul>{history.map(p=><li key={p.id}>{p.plan_code} · {p.amount} جنيه · {p.status==="pending_review"?"قيد المراجعة":p.status==="paid"?"تم التأكيد":p.status==="rejected"?"مرفوض":p.status} · {new Date(p.created_at).toLocaleDateString("ar-EG")}</li>)}</ul>
   </section>;
 }
