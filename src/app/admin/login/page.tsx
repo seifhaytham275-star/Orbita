@@ -42,6 +42,7 @@ export default function AdminLoginPage() {
       <label>كلمة المرور<input value={password} onChange={event=>setPassword(event.target.value)} type="password" autoComplete="current-password" required maxLength={200}/></label>
       <button disabled={busy}>{busy ? "جارٍ التحقق..." : "دخول لوحة الأدمن"}</button>
     </form>
+    <p className="auth-muted"><Link href="/admin/setup">إنشاء حساب الأدمن لأول مرة</Link></p>
     <p className="auth-muted"><Link href="/login">العودة إلى دخول العملاء</Link></p>
   </section></main>;
 }
