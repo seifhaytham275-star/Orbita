@@ -2,32 +2,62 @@
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
+function makePassword() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
+  const bytes = new Uint32Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, value => chars[value % chars.length]).join("");
+}
+
 export default function SignupPage() {
   const [message,setMessage] = useState("");
   const [busy,setBusy] = useState(false);
+  const [password,setPassword] = useState("");
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setMessage("");
     const form = new FormData(event.currentTarget);
+    const companyName = String(form.get("companyName") || "").trim();
+    const industry = String(form.get("industry") || "").trim();
+    const email = String(form.get("email") || "").trim();
     try {
       const supabase = createSupabaseBrowserClient();
       const { error } = await supabase.auth.signUp({
-        email: String(form.get("email") || ""),
-        password: String(form.get("password") || ""),
-        options: { data: { display_name: String(form.get("name") || "") }, emailRedirectTo: window.location.origin + "/dashboard" }
+        email,
+        password,
+        options: {
+          data: { display_name: companyName, company_name: companyName, industry },
+          emailRedirectTo: window.location.origin + "/dashboard"
+        }
       });
       if (error) throw error;
-      setMessage("تم إرسال طلب التسجيل. راجع بريدك الإلكتروني لتأكيد الحساب إذا كان تأكيد البريد مفعّلًا.");
+      setMessage("تم إنشاء الحساب وبدء فترة التجربة المجانية لمدة 5 أيام. راجع بريدك لتأكيد الحساب، ثم سجّل الدخول.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "تعذر إنشاء الحساب."); }
     finally { setBusy(false); }
   }
   return <main className="auth-shell"><section className="auth-card">
     <a href="/" className="auth-brand">ORBITA</a><p className="eyebrow">START YOUR WORKSPACE</p>
-    <h1>إنشاء حساب</h1><p className="auth-muted">حساب العميل لا يحصل تلقائيًا على صلاحيات إدارة المنصة.</p>
+    <h1>إنشاء حساب شركتك</h1>
+    <p className="auth-muted">أنشئ مساحة شركتك وابدأ تجربة Orbita المجانية لمدة 5 أيام.</p>
     <form onSubmit={submit} className="auth-form">
-      <label>اسمك<input name="name" required minLength={2} maxLength={80}/></label>
-      <label>البريد الإلكتروني<input name="email" type="email" required autoComplete="email"/></label>
-      <label>كلمة المرور<input name="password" type="password" required minLength={10} autoComplete="new-password"/></label>
-      <button disabled={busy}>{busy ? "جارٍ الإنشاء..." : "إنشاء الحساب"}</button>
+      <label>اسم الشركة<input name="companyName" required minLength={2} maxLength={120} autoComplete="organization"/></label>
+      <label>مجال عمل الشركة
+        <select name="industry" required defaultValue="">
+          <option value="" disabled>اختر مجال النشاط</option>
+          <option value="تجارة وبيع بالتجزئة">تجارة وبيع بالتجزئة</option>
+          <option value="خدمات ومكاتب">خدمات ومكاتب</option>
+          <option value="عيادات ومراكز طبية">عيادات ومراكز طبية</option>
+          <option value="مطاعم وكافيهات">مطاعم وكافيهات</option>
+          <option value="تعليم وتدريب">تعليم وتدريب</option>
+          <option value="تصنيع ومخازن">تصنيع ومخازن</option>
+          <option value="أخرى">أخرى</option>
+        </select>
+      </label>
+      <label>البريد الإلكتروني (Gmail أو أي بريد صالح)<input name="email" type="email" required autoComplete="email"/></label>
+      <label>كلمة المرور
+        <input name="password" type="text" required minLength={12} maxLength={80} autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} />
+      </label>
+      <button type="button" className="secondary-action" onClick={()=>setPassword(makePassword())}>توليد كلمة مرور قوية</button>
+      <button disabled={busy || password.length < 12}>{busy ? "جارٍ إنشاء الحساب..." : "إنشاء الحساب وبدء التجربة"}</button>
     </form>
     {message && <p className="notice">{message}</p>}
     <p className="auth-muted">لديك حساب؟ <a href="/login">تسجيل الدخول</a></p>
