@@ -157,14 +157,14 @@ export async function POST(request: Request) {
   if (!org) return fail("لا توجد شركة نشطة مرتبطة بحسابك أو انتهت فترة الوصول.", 403);
 
   const agent = pickAgent(message);
+  const { data: task, error: taskError } = await supabase.from("agent_tasks").insert({
+    organization_id: org.id, requested_by: user.id, agent_name: agent,
+    title: message.slice(0, 180), input: { message }, status: "running"
+  }).select("id,agent_name,title,status,created_at").single();
+  if (taskError || !task) return fail("تعذر تسجيل المهمة قبل التنفيذ. لم يتم تنفيذ أي إجراء.", 503);
+
   try {
     const execution = await executeAgent(supabase, org, user.id, agent, message);
-    const { data: task, error: taskError } = await supabase.from("agent_tasks").insert({
-      organization_id: org.id, requested_by: user.id, agent_name: agent,
-      title: message.slice(0, 180), input: { message }, result: execution.result,
-      status: execution.status
-    }).select("id,agent_name,title,status,result,created_at").single();
-    if (taskError) throw new Error("تم تجهيز العملية لكن تعذر حفظ سجل المهمة. راجع صلاحيات قاعدة البيانات.");
     if (execution.status === "needs_approval") {
       const { error: approvalError } = await supabase.from("agent_approvals").insert({
         organization_id: org.id, task_id: task.id, requested_action: message,
@@ -172,13 +172,21 @@ export async function POST(request: Request) {
       });
       if (approvalError) throw new Error("تعذر إنشاء طلب الموافقة؛ لم يتم تنفيذ الإجراء.");
     }
+    const { data: updated, error: updateError } = await supabase.from("agent_tasks").update({
+      result: execution.result, status: execution.status, updated_at: new Date().toISOString()
+    }).eq("id", task.id).eq("organization_id", org.id).select("id,agent_name,title,status,result,created_at").single();
+    if (updateError || !updated) throw new Error("تعذر تحديث حالة المهمة بعد التنفيذ.");
     await supabase.from("audit_logs").insert({
       organization_id: org.id, actor_id: user.id, action: "astro.task_executed",
-      target_type: "agent_task", target_id: task.id, metadata: { agent_name: agent, status: execution.status }
+      target_type: "agent_task", target_id: task.id,
+      metadata: { agent_name: agent, status: execution.status }
     });
-    return NextResponse.json({ task, reply: execution.reply });
+    return NextResponse.json({ task: updated, reply: execution.reply });
   } catch (error) {
     const reason = error instanceof Error ? error.message : "حدث خطأ أثناء تنفيذ المهمة.";
+    await supabase.from("agent_tasks").update({
+      status: "failed", result: { error: reason }, updated_at: new Date().toISOString()
+    }).eq("id", task.id).eq("organization_id", org.id);
     return fail(reason, 422);
   }
 }
