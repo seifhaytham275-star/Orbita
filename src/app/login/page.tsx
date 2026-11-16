@@ -3,11 +3,20 @@ import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ message?: string }> }) {
+const LOGIN_ERRORS: Record<string, string> = {
+  setup_missing: "إعداد تسجيل الدخول باسم المستخدم غير مكتمل. تواصل مع مسؤول المنصة.",
+  invalid_credentials: "بيانات الدخول غير صحيحة.",
+  email_confirmation_failed: "تعذر تأكيد البريد الإلكتروني. اطلب رسالة تأكيد جديدة وحاول مرة أخرى."
+};
+
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (user) redirect("/dashboard");
+
   const params = await searchParams;
+  const errorMessage = params.error ? LOGIN_ERRORS[params.error] : undefined;
+
   async function signIn(formData: FormData) {
     "use server";
     const identifier = String(formData.get("identifier") || "").trim();
@@ -18,24 +27,38 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     if (!identifier.includes("@")) {
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      if (!url || !serviceKey) redirect(`/login?message=${encodeURIComponent("إعداد تسجيل الدخول باسم المستخدم غير مكتمل")}`);
-      const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
-      const { data: company } = await admin.from("organizations").select("created_by").ilike("username", identifier).maybeSingle();
-      if (!company?.created_by) redirect(`/login?message=${encodeURIComponent("بيانات الدخول غير صحيحة")}`);
+      if (!url || !serviceKey) redirect("/login?error=setup_missing");
+
+      const admin = createClient(url, serviceKey, {
+        auth: { persistSession: false, autoRefreshToken: false }
+      });
+      const { data: company, error: companyError } = await admin
+        .from("organizations")
+        .select("created_by")
+        .ilike("username", identifier)
+        .maybeSingle();
+
+      if (companyError || !company?.created_by) {
+        redirect("/login?error=invalid_credentials");
+      }
+
       const { data: owner, error: ownerError } = await admin.auth.admin.getUserById(company.created_by);
-      if (ownerError || !owner.user.email) redirect(`/login?message=${encodeURIComponent("بيانات الدخول غير صحيحة")}`);
+      if (ownerError || !owner.user.email) {
+        redirect("/login?error=invalid_credentials");
+      }
       email = owner.user.email;
     }
 
     const client = await createSupabaseServerClient();
     const { error } = await client.auth.signInWithPassword({ email, password });
-    if (error) redirect(`/login?message=${encodeURIComponent("بيانات الدخول غير صحيحة")}`);
+    if (error) redirect("/login?error=invalid_credentials");
     redirect("/dashboard");
   }
+
   return <main className="auth-shell"><section className="auth-card">
     <Link href="/" className="auth-brand">ORBITA</Link><p className="eyebrow">WELCOME BACK</p>
     <h1>تسجيل الدخول</h1><p className="auth-muted">استخدم اسم مستخدم شركتك أو بريدك الإلكتروني.</p>
-    {params.message && <p className="notice">{params.message}</p>}
+    {errorMessage && <p className="notice" role="alert">{errorMessage}</p>}
     <form action={signIn} className="auth-form">
       <label>اسم المستخدم أو البريد الإلكتروني<input name="identifier" autoComplete="username" required /></label>
       <label>كلمة المرور<input name="password" type="password" autoComplete="current-password" required /></label>
