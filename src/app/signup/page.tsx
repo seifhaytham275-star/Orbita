@@ -32,14 +32,14 @@ export default function SignupPage() {
         }
       });
       if (error) throw error;
-      setMessage("تم إرسال طلب إنشاء الحساب. راجع بريدك لتأكيد عنوانك، وبعد التأكيد ستظهر مساحة شركتك تلقائيًا. الوصول المجاني لمدة شهر واحد دون بطاقة بنكية أو تجديد تلقائي.");
+      setMessage("تم إنشاء حسابك المجاني وبدء تجهيز مساحة شركتك تلقائيًا. لا تحتاج إلى موافقة إدارية أو طلب تفعيل، ولا توجد بطاقة بنكية أو مدفوعات أو تجديد تلقائي. قد يُطلب منك تأكيد بريدك الإلكتروني لتسجيل الدخول.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "تعذر إنشاء الحساب."); }
     finally { setBusy(false); }
   }
   return <main className="auth-shell"><section className="auth-card">
     <Link href="/" className="auth-brand">ORBITA</Link><p className="eyebrow">START YOUR WORKSPACE</p>
     <h1>إنشاء حساب شركتك</h1>
-    <p className="auth-muted">شهر واحد وصول مجاني. لا بطاقة بنكية ولا خصم أو تجديد تلقائي.</p>
+    <p className="auth-muted">أنشئ حسابك فورًا واحصل على شهر مجاني. لا موافقة إدارية، ولا بطاقة بنكية، ولا خصم أو تجديد تلقائي.</p>
     <form onSubmit={submit} className="auth-form">
       <label>اسم الشركة<input name="companyName" required minLength={2} maxLength={120} autoComplete="organization"/></label>
       <label>مجال عمل الشركة
