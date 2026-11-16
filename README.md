@@ -5,14 +5,21 @@ Arabic-first SaaS workspace for small businesses.
 ## Stack
 - Next.js App Router + TypeScript
 - Supabase (Postgres, Auth, Row Level Security)
-- Provider-agnostic AI adapter
-- Payment methods: InstaPay and Fawry only
+- Provider-agnostic AI adapter (provider implementation is not yet connected)
+- Responsive web app, Windows Electron wrapper, Android Capacitor wrapper
 
 ## Current status
-Foundation scaffold. Not production-ready yet. Fawry requires an approved merchant account and official integration credentials. InstaPay transfer submissions require owner review until a trusted payment confirmation integration exists.
+Early foundation — not production-ready. The six specialist agents are product modules, not six completed AI services yet. No external AI API is configured. The database and hosting still need to be connected and verified.
+
+## Free launch policy
+- Five months of free access are planned for each company.
+- No payment card is requested and no automatic payment or renewal is enabled.
+- Free hosting providers have quotas and availability limits; five months of third-party hosting uptime cannot be guaranteed.
+- No paid subscription collection is active.
+- WhatsApp, Fawry, and InstaPay integrations are not active. Fawry requires an approved merchant account and official credentials; InstaPay transfer submissions require owner review until a trusted confirmation integration exists.
 
 ## Setup
-1. Install Node.js 20 or newer.
+1. Install Node.js 22.12 or newer.
 2. Run `npm install`.
 3. Copy `.env.example` to `.env.local` and fill in values locally.
 4. Run `npm run dev`.
@@ -37,14 +44,13 @@ The Android artifact is a debug APK for device testing and direct installation, 
 
 Do not place API keys, service-role keys, payment secrets, passwords, or private signing material in this public repository.
 
-## Company accounts and free trial
+## Company accounts
 - Company signup collects company name, business activity, email, and password.
-- The database creates a unique company username and starts a five-day trial.
+- The database creates a unique company username and records the five-month free-access period.
 - Login accepts either the company username or account email plus password.
 - Username login requires the server-only `SUPABASE_SERVICE_ROLE_KEY` environment variable. Never use a `NEXT_PUBLIC_` prefix for this key.
-- Platform administrators can review registered companies and manually activate/suspend subscriptions or disable features at `/admin`.
+- Platform administrators can review registered companies, suspend access, and disable features at `/admin`.
 - After adding the owner account, promote it once in the Supabase SQL editor:
   `update public.profiles set platform_role='admin' where email='OWNER_EMAIL_HERE';`
 - Apply migrations in order: `0001_orbita_core.sql`, then `0002_company_accounts_and_trial.sql`.
-- The trial dates and feature switch are stored per company. Each future paid feature/API must check that the subscription is active or the trial has not expired and that `features_enabled` is true before allowing access.
 - Admins cannot view customer passwords. Passwords are securely handled by Supabase Auth; use account recovery/reset flows instead.
