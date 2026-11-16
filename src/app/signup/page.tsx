@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getPublicSiteUrl } from "@/lib/site-url";
 
 function makePassword() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
@@ -28,7 +29,7 @@ export default function SignupPage() {
         password,
         options: {
           data: { display_name: companyName, company_name: companyName, industry },
-          emailRedirectTo: window.location.origin + "/dashboard"
+          emailRedirectTo: `${getPublicSiteUrl()}/auth/callback?next=%2Fdashboard`
         }
       });
       if (error) throw error;
