@@ -35,7 +35,7 @@ export async function createAdminSession() {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
-    path: "/admin",
+    path: "/",
     maxAge: SESSION_SECONDS
   });
 }
@@ -56,7 +56,7 @@ export async function getAdminSession() {
 
 export async function clearAdminSession() {
   const store = await cookies();
-  store.set(COOKIE_NAME, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/admin", maxAge: 0 });
+  store.set(COOKIE_NAME, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: 0 });
 }
 
 export function isAdminAuthConfigured() {
