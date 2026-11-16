@@ -17,13 +17,14 @@ export default async function DashboardPage() {
   }
   return <main className="dashboard-shell">
     <header className="dash-top"><a href="/" className="auth-brand">ORBITA</a><form action={signOut}><button className="signout">تسجيل الخروج</button></form></header>
-    <section className="dash-welcome"><p className="eyebrow">YOUR WORKSPACE</p><h1>أهلًا {profile?.display_name || user.email}</h1><p>دي مساحة عملك. تم تجهيز أساس الحسابات وربط الشركات، وسيتم تفعيل أدوات الإدارة بعد إعداد قاعدة البيانات.</p></section>
+    <section className="dash-welcome"><p className="eyebrow">YOUR WORKSPACE</p><h1>أهلًا {profile?.display_name || user.email}</h1><p>دي مساحة عملك. ستظهر بيانات شركتك والوكلاء المتاحون بعد اكتمال ربط قاعدة البيانات.</p></section>
     <section className="dash-grid">
       <article><span>نوع الحساب</span><strong>{profile?.platform_role === "admin" ? "مدير المنصة" : "عميل"}</strong></article>
       <article><span>الشركات المرتبطة</span><strong>{memberships?.length ?? 0}</strong></article>
       <article><span>البريد الإلكتروني</span><strong className="email-value">{user.email}</strong></article>
     </section>
-    <section className="dash-panel"><h2>شركاتك</h2>{memberships?.length ? <ul>{memberships.map((m:any)=><li key={m.organization_id}><strong>{m.organizations?.name || "شركة"}</strong> — {m.role}<br/>اسم المستخدم: {m.organizations?.username || "سيظهر بعد تطبيق تحديث قاعدة البيانات"}<br/>النشاط: {m.organizations?.industry || "غير محدد"}<br/>{m.organizations?.subscription_status === "trial" ? `تجربة مجانية حتى ${new Date(m.organizations.trial_ends_at).toLocaleString("ar-EG")}` : `حالة الاشتراك: ${m.organizations?.subscription_status}`}<br/>{m.organizations?.features_enabled ? "المميزات مفعّلة" : "المميزات موقوفة"}</li>)}</ul> : <p>لا توجد شركة مرتبطة بحسابك حاليًا. إنشاء الشركات وإدارة الأعضاء يحتاجان استكمال إعداد قاعدة البيانات.</p>}</section>
-    {profile?.platform_role === "admin" && <p><a href="/admin">فتح لوحة إدارة الشركات والاشتراكات</a></p>}\n    <p className="dash-note">نسخة تأسيسية: لا تستخدمها لمعالجة مدفوعات أو بيانات عملاء حقيقية قبل استكمال الإعداد واختبارات الأمان.</p>
+    <section className="dash-panel"><h2>شركاتك</h2>{memberships?.length ? <ul>{memberships.map((m:any)=><li key={m.organization_id}><strong>{m.organizations?.name || "شركة"}</strong> — {m.role}<br/>اسم المستخدم: {m.organizations?.username || "سيظهر بعد تطبيق تحديث قاعدة البيانات"}<br/>النشاط: {m.organizations?.industry || "غير محدد"}<br/>{m.organizations?.subscription_status === "active" ? `وصول مجاني حتى ${new Date(m.organizations.trial_ends_at).toLocaleDateString("ar-EG")}` : `حالة الحساب: ${m.organizations?.subscription_status}`}<br/>{m.organizations?.features_enabled ? "المميزات مفعّلة" : "المميزات موقوفة"}</li>)}</ul> : <p>لا توجد شركة مرتبطة بحسابك حاليًا. سيتم إنشاء مساحة الشركة تلقائيًا عند اكتمال إعداد قاعدة البيانات.</p>}</section>
+    {profile?.platform_role === "admin" && <p><a href="/admin">فتح لوحة إدارة الشركات</a></p>}
+    <p className="dash-note">نسخة تأسيسية: لا تستخدمها لمعالجة مدفوعات أو بيانات عملاء حقيقية قبل استكمال الإعداد واختبارات الأمان.</p>
   </main>;
 }
