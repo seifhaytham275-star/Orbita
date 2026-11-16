@@ -12,9 +12,9 @@ Arabic-first SaaS workspace for small businesses.
 Early foundation — not production-ready. The six specialist agents are product modules, not six completed AI services yet. No external AI API is configured. The database and hosting still need to be connected and verified.
 
 ## Free launch policy
-- Five months of free access are planned for each company.
+- One month of free access is planned for each company.
 - No payment card is requested and no automatic payment or renewal is enabled.
-- Free hosting providers have quotas and availability limits; five months of third-party hosting uptime cannot be guaranteed.
+- Free hosting providers have quotas and availability limits; one month of third-party hosting uptime cannot be guaranteed.
 - No paid subscription collection is active.
 - WhatsApp, Fawry, and InstaPay integrations are not active. Fawry requires an approved merchant account and official credentials; InstaPay transfer submissions require owner review until a trusted confirmation integration exists.
 
@@ -46,7 +46,7 @@ Do not place API keys, service-role keys, payment secrets, passwords, or private
 
 ## Company accounts
 - Company signup collects company name, business activity, email, and password.
-- The database creates a unique company username and records the five-month free-access period.
+- The database creates a unique company username and records the one-month free-access period.
 - Login accepts either the company username or account email plus password.
 - Username login requires the server-only `SUPABASE_SERVICE_ROLE_KEY` environment variable. Never use a `NEXT_PUBLIC_` prefix for this key.
 - Platform administrators can review registered companies, suspend access, and disable features at `/admin`.
