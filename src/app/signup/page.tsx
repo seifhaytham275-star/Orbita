@@ -3,7 +3,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getPublicSiteUrl } from "@/lib/site-url";
-import { getPublicSiteUrl } from "@/lib/site-url";
 
 function makePassword() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
