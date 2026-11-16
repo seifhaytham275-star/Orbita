@@ -11,7 +11,7 @@ alter table public.organizations
 -- Existing organizations receive a stable username based on their name and ID.
 update public.organizations
 set username = coalesce(nullif(username,''), 
-  coalesce(nullif(trim(both '-' from regexp_replace(lower(name), '[^a-z0-9]+', '-', 'g')),''),'company')
+  coalesce(nullif(trim(both '-' from regexp_replace(lower(name), '[[:space:][:punct:]]+', '-', 'g')),''),'company')
   || '-' || substr(replace(id::text,'-',''),1,5))
 where username is null or username='';
 
@@ -55,7 +55,7 @@ declare
 begin
   company_name := coalesce(nullif(trim(new.raw_user_meta_data->>'company_name'),''), 'شركتي');
   company_industry := coalesce(nullif(trim(new.raw_user_meta_data->>'industry'),''), 'غير محدد');
-  base_username := trim(both '-' from regexp_replace(lower(company_name), '[^a-z0-9]+', '-', 'g'));
+  base_username := trim(both '-' from regexp_replace(lower(company_name), '[[:space:][:punct:]]+', '-', 'g'));
   if base_username = '' then base_username := 'company'; end if;
   company_username := left(base_username, 35) || '-' || substr(replace(gen_random_uuid()::text,'-',''),1,5);
 
