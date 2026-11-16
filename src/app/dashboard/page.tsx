@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import AstroWorkspace from "./astro-workspace";
+import OperationsWorkspace from "./operations-workspace";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function DashboardPage() {
@@ -28,6 +29,7 @@ export default async function DashboardPage() {
     </section>
     <section className="dash-panel"><h2>شركاتك</h2>{memberships?.length ? <ul>{memberships.map((m)=><li key={m.organization_id}><strong>{m.organizations?.[0]?.name || "شركة"}</strong> — {m.role}<br/>اسم المستخدم: {m.organizations?.[0]?.username || "سيظهر بعد تطبيق تحديث قاعدة البيانات"}<br/>النشاط: {m.organizations?.[0]?.industry || "غير محدد"}<br/>{m.organizations?.[0]?.subscription_status === "active" ? `وصول مجاني حتى ${new Date(m.organizations[0].trial_ends_at).toLocaleDateString("ar-EG")}` : `حالة الحساب: ${m.organizations?.[0]?.subscription_status}`}<br/>{m.organizations?.[0]?.features_enabled ? "المميزات مفعّلة" : "المميزات موقوفة"}</li>)}</ul> : <p>لا توجد شركة مرتبطة بهذا الحساب. إذا أنشأت حسابك للتو، أكّد بريدك الإلكتروني ثم سجّل الدخول مرة أخرى.</p>}</section>
     {profile?.platform_role === "admin" && <p><Link href="/admin">فتح لوحة إدارة الشركات</Link></p>}
+    <OperationsWorkspace organizationId={activeOrgId} />
     <AstroWorkspace organizationId={activeOrgId} />
     <p className="dash-note">نسخة تأسيسية: لا تستخدمها لمعالجة مدفوعات أو بيانات عملاء حقيقية قبل استكمال الإعداد واختبارات الأمان.</p>
   </main>;
