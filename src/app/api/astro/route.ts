@@ -25,7 +25,7 @@ async function getContext(supabase: Awaited<ReturnType<typeof createSupabaseServ
     .eq("user_id", userId).order("created_at", { ascending: true }).limit(1).maybeSingle();
   if (error || !data) return null;
   const org = Array.isArray(data.organizations) ? data.organizations[0] : data.organizations;
-  if (!org || !org.features_enabled || new Date(org.trial_ends_at) < new Date()) return null;
+  if (!org || !org.features_enabled || !["active", "trial"].includes(org.subscription_status) || new Date(org.trial_ends_at) < new Date()) return null;
   return { id: data.organization_id, name: org.name, industry: org.industry, role: data.role };
 }
 
@@ -41,8 +41,6 @@ async function executeAgent(
   agent: Agent,
   message: string
 ): Promise<{ result: Record<string, unknown>; reply: string; status: "completed" | "needs_approval" }> {
-  const lower = message.toLocaleLowerCase("ar");
-
   // Sensitive actions are never executed by an agent without explicit owner/manager approval.
   const sensitive = /(ادفع|تحويل|استرداد|refund|payment|delete|احذف|امسح|ابعت.*للعملاء|ارسل.*للعملاء|رسالة جماعية|mass message)/i.test(message);
   if (sensitive) {
@@ -155,6 +153,13 @@ export async function POST(request: Request) {
   if (!message || message.length > 1200) return fail("اكتب مهمة واضحة (حتى 1200 حرف).");
   const org = await getContext(supabase, user.id);
   if (!org) return fail("لا توجد شركة نشطة مرتبطة بحسابك أو انتهت فترة الوصول.", 403);
+
+  const windowStart = new Date(Date.now() - 60_000).toISOString();
+  const { count: recentTasks, error: rateError } = await supabase.from("agent_tasks")
+    .select("id", { count: "exact", head: true }).eq("organization_id", org.id)
+    .eq("requested_by", user.id).gte("created_at", windowStart);
+  if (rateError) return fail("تعذر التحقق من معدل الطلبات. حاول مرة أخرى.", 503);
+  if ((recentTasks ?? 0) >= 20) return fail("وصلت للحد المؤقت: 20 مهمة في الدقيقة. انتظر قليلًا ثم حاول.", 429);
 
   const agent = pickAgent(message);
   const { data: task, error: taskError } = await supabase.from("agent_tasks").insert({
