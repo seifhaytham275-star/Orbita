@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import AstroWorkspace from "./astro-workspace";
 import OperationsWorkspace from "./operations-workspace";
+import ApprovalsWorkspace from "./approvals-workspace";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function DashboardPage() {
@@ -31,6 +32,7 @@ export default async function DashboardPage() {
     {profile?.platform_role === "admin" && <p><Link href="/admin">فتح لوحة إدارة الشركات</Link></p>}
     <OperationsWorkspace organizationId={activeOrgId} />
     <AstroWorkspace organizationId={activeOrgId} />
+    <ApprovalsWorkspace />
     <p className="dash-note">نسخة تأسيسية: لا تستخدمها لمعالجة مدفوعات أو بيانات عملاء حقيقية قبل استكمال الإعداد واختبارات الأمان.</p>
   </main>;
 }
