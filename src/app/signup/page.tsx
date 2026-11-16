@@ -13,6 +13,7 @@ export default function SignupPage() {
   const [message,setMessage] = useState("");
   const [busy,setBusy] = useState(false);
   const [password,setPassword] = useState("");
+  const [showPassword,setShowPassword] = useState(false);
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setMessage("");
     const form = new FormData(event.currentTarget);
@@ -54,9 +55,10 @@ export default function SignupPage() {
       </label>
       <label>البريد الإلكتروني (Gmail أو أي بريد صالح)<input name="email" type="email" required autoComplete="email"/></label>
       <label>كلمة المرور
-        <input name="password" type="password" required minLength={12} maxLength={80} autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} />
+        <input name="password" type={showPassword ? "text" : "password"} required minLength={12} maxLength={80} autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} />
       </label>
       <button type="button" className="secondary-action" onClick={()=>setPassword(makePassword())}>توليد كلمة مرور قوية</button>
+      <button type="button" className="secondary-action" onClick={()=>setShowPassword(value=>!value)}>{showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}</button>
       <button disabled={busy || password.length < 12}>{busy ? "جارٍ إنشاء الحساب..." : "إنشاء الحساب وبدء التجربة"}</button>
     </form>
     {message && <p className="notice">{message}</p>}
