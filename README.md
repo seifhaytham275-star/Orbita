@@ -18,3 +18,21 @@ Foundation scaffold. Not production-ready yet. Fawry requires an approved mercha
 4. Run `npm run dev`.
 
 Never commit `.env.local`, passwords, API keys, Supabase service-role keys, or payment-provider secrets.
+
+## Windows and Android installers
+The repository includes build pipelines for:
+- Windows x64 NSIS setup installer (.exe), using Electron.
+- Android debug APK, using Capacitor.
+
+Both packages open the hosted Orbita website. They do not run Python or a local Python server, and they require an internet connection.
+
+### Build installers
+1. Deploy the Next.js website to an HTTPS host and finish Supabase configuration first.
+2. In GitHub, open Settings → Secrets and variables → Actions → Variables.
+3. Add repository variable `ORBITA_WEB_URL` with the exact deployed HTTPS URL (no trailing slash required).
+4. Open Actions → Build Orbita installers → Run workflow.
+5. When both jobs finish successfully, open the workflow run's Artifacts section and download `Orbita-Windows-Installer` and `Orbita-Android-APK`.
+
+The Android artifact is a debug APK for device testing and direct installation, not a Play Store release. A production Android release needs a protected signing keystore. The Windows installer is currently unsigned; commercial distribution without SmartScreen warnings requires a code-signing certificate.
+
+Do not place API keys, service-role keys, payment secrets, passwords, or private signing material in this public repository.
