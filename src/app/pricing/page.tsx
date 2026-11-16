@@ -1,43 +1,15 @@
 import Link from "next/link";
 
+const plans = [
+  {name:"Orbita Free",price:"0",period:"تجربة مجانية لمدة 30 يومًا",users:"مستخدم واحد",tasks:"30 مهمة Astro شهريًا",agents:"Insight وLedger",description:"ابدأ بتنظيم أساسيات عملك."},
+  {name:"Orbita Pro",price:"399",period:"جنيه / شهر",users:"حتى 3 مستخدمين",tasks:"500 مهمة Astro شهريًا",agents:"الوكلاء الستة",description:"للشركات الصغيرة التي تحتاج إدارة يومية متكاملة."},
+  {name:"Orbita Business",price:"899",period:"جنيه / شهر",users:"حتى 10 مستخدمين",tasks:"2,000 مهمة Astro شهريًا",agents:"الوكلاء الستة + دعم أولوية",description:"لفرق العمل النامية ومعدلات الاستخدام الأعلى."}
+];
 export default function PricingPage() {
   return <main className="shell pricing-shell" dir="rtl">
-    <header className="topbar">
-      <Link className="brand" href="/"><span className="brand-mark">O</span><span>ORBITA</span></Link>
-      <nav className="pricing-nav"><Link href="/login">تسجيل الدخول</Link><Link href="/signup">إنشاء حساب</Link></nav>
-    </header>
-    <section className="pricing-hero">
-      <p className="eyebrow">FREE LAUNCH ACCESS</p>
-      <h1>ابدأ مع Orbita، <span>من غير تكلفة.</span></h1>
-      <p>خلال مرحلة الإطلاق، الوصول مجاني لمدة شهر واحد لكل شركة. لا نطلب بطاقة بنكية ولا نفعّل خصمًا أو تجديدًا تلقائيًا.</p>
-      <span className="pricing-disclaimer">لا توجد باقات مدفوعة أو تحصيل اشتراكات مفعّل في الوقت الحالي.</span>
-    </section>
-    <section className="pricing-grid" aria-label="الخطة الحالية">
-      <article className="plan-card plan-featured">
-        <span className="plan-tag">خطة الإطلاق</span>
-        <h2>Orbita Free</h2>
-        <p className="plan-description">مساحة موحدة لتنظيم أعمال شركتك وتجربة الأدوات المتاحة أثناء الإطلاق.</p>
-        <div className="plan-price"><strong>0</strong><span>جنيه</span></div>
-        <p className="annual-price">مجانًا لمدة شهر واحد</p>
-        <ul>
-          <li>حساب شركة واحد يعمل من الموبايل واللابتوب</li>
-          <li>لوحة تحكم عربية واتجاه RTL</li>
-          <li>إدارة أعضاء الشركة وصلاحياتهم عند اكتمال التفعيل</li>
-          <li>الوصول إلى الوكلاء المتاحين تدريجيًا</li>
-          <li>لا بطاقة بنكية ولا دفع تلقائي</li>
-        </ul>
-        <Link className="primary plan-cta" href="/signup">ابدأ مجانًا</Link>
-      </article>
-    </section>
-    <section className="pricing-notes">
-      <h2>بوضوح ومن غير مفاجآت</h2>
-      <ul>
-        <li>لا توجد مدفوعات أو اشتراكات مدفوعة مفعّلة حاليًا.</li>
-        <li>لن يتم خصم أي مبلغ تلقائيًا بعد انتهاء فترة الوصول المجاني.</li>
-        <li>قد تكون هناك حدود استخدام على خدمات الاستضافة المجانية؛ سنوضح أي حدود فعلية بدلًا من الوعد باستخدام غير محدود.</li>
-        <li>ربط WhatsApp وFawry وInstaPay مؤجل لحين تجهيز الربط الرسمي ومراجعته.</li>
-      </ul>
-    </section>
-    <footer>© {new Date().getFullYear()} Orbita · <Link href="/">الرئيسية</Link></footer>
+    <header className="topbar"><Link className="brand" href="/"><span className="brand-mark">O</span><span>ORBITA</span></Link><nav className="pricing-nav"><Link href="/login">تسجيل الدخول</Link><Link href="/signup">إنشاء حساب</Link></nav></header>
+    <section className="pricing-hero"><p className="eyebrow">SIMPLE EGP SUBSCRIPTIONS</p><h1>اختار الباقة المناسبة <span>لنمو شغلك.</span></h1><p>الدفع عبر InstaPay فقط، ومراجعة التحويل يدويًا. لا يوجد خصم تلقائي أو تجديد دون طلبك.</p></section>
+    <section className="pricing-grid" aria-label="الباقات">{plans.map((p,i)=><article className={i===1?"plan-card plan-featured":"plan-card"} key={p.name}><span className="plan-tag">{i===0?"ابدأ مجانًا":i===1?"الأكثر توازنًا":"للشركات النامية"}</span><h2>{p.name}</h2><p>{p.description}</p><div className="plan-price"><strong>{p.price}</strong><span>جنيه</span></div><p className="annual-price">{p.period}</p><ul><li>{p.users}</li><li>{p.tasks}</li><li>{p.agents}</li><li>إدارة اشتراك واضحة دون خصم تلقائي</li></ul><Link className="primary plan-cta" href={i===0?"/signup":"/dashboard/billing"}>{i===0?"ابدأ مجانًا":"اشترك عبر InstaPay"}</Link></article>)}</section>
+    <section className="pricing-notes"><h2>طريقة الدفع والتفعيل</h2><ul><li>حوّل قيمة الباقة إلى رقم InstaPay الظاهر داخل حسابك.</li><li>أدخل مرجع التحويل لإرسال طلب المراجعة.</li><li>لا يتم تفعيل الاشتراك إلا بعد تأكيد الاستلام من الإدارة.</li><li>الأسعار بالجنيه المصري وقابلة للتعديل قبل الإطلاق التجاري النهائي.</li></ul></section><footer>© {new Date().getFullYear()} Orbita · <Link href="/">الرئيسية</Link></footer>
   </main>;
 }
