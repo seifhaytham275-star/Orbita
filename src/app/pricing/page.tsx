@@ -1,8 +1,10 @@
+import Link from "next/link";
+
 export default function PricingPage() {
   return <main className="shell pricing-shell" dir="rtl">
     <header className="topbar">
-      <a className="brand" href="/"><span className="brand-mark">O</span><span>ORBITA</span></a>
-      <nav className="pricing-nav"><a href="/login">تسجيل الدخول</a><a href="/signup">إنشاء حساب</a></nav>
+      <Link className="brand" href="/"><span className="brand-mark">O</span><span>ORBITA</span></Link>
+      <nav className="pricing-nav"><Link href="/login">تسجيل الدخول</Link><Link href="/signup">إنشاء حساب</Link></nav>
     </header>
     <section className="pricing-hero">
       <p className="eyebrow">FREE LAUNCH ACCESS</p>
@@ -24,7 +26,7 @@ export default function PricingPage() {
           <li>الوصول إلى الوكلاء المتاحين تدريجيًا</li>
           <li>لا بطاقة بنكية ولا دفع تلقائي</li>
         </ul>
-        <a className="primary plan-cta" href="/signup">ابدأ مجانًا</a>
+        <Link className="primary plan-cta" href="/signup">ابدأ مجانًا</Link>
       </article>
     </section>
     <section className="pricing-notes">
@@ -36,6 +38,6 @@ export default function PricingPage() {
         <li>ربط WhatsApp وFawry وInstaPay مؤجل لحين تجهيز الربط الرسمي ومراجعته.</li>
       </ul>
     </section>
-    <footer>© {new Date().getFullYear()} Orbita · <a href="/">الرئيسية</a></footer>
+    <footer>© {new Date().getFullYear()} Orbita · <Link href="/">الرئيسية</Link></footer>
   </main>;
 }
