@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Agent = "Ledger" | "Echo" | "Pulse" | "Stock" | "Reach" | "Insight";
-type OrgContext = { id: string; name: string; industry: string; role: string };
+type OrgContext = { id: string; name: string; industry: string; role: string; planCode: string };
 
 const routing: Array<{ agent: Agent; keywords: string[] }> = [
   { agent: "Stock", keywords: ["مخزون","صنف","منتج","شراء","كمية","stock","inventory","product"] },
@@ -21,12 +21,12 @@ const fail = (message: string, status = 400) => NextResponse.json({ error: messa
 
 async function getContext(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, userId: string): Promise<OrgContext | null> {
   const { data, error } = await supabase.from("memberships")
-    .select("organization_id,role,organizations(name,industry,subscription_status,features_enabled,trial_ends_at)")
+    .select("organization_id,role,organizations(name,industry,subscription_status,features_enabled,trial_ends_at,subscription_ends_at,plan_code)")
     .eq("user_id", userId).order("created_at", { ascending: true }).limit(1).maybeSingle();
   if (error || !data) return null;
   const org = Array.isArray(data.organizations) ? data.organizations[0] : data.organizations;
-  if (!org || !org.features_enabled || !["active", "trial"].includes(org.subscription_status) || new Date(org.trial_ends_at) < new Date()) return null;
-  return { id: data.organization_id, name: org.name, industry: org.industry, role: data.role };
+  if (!org || !org.features_enabled || !["active", "trial"].includes(org.subscription_status) || new Date(org.subscription_ends_at || org.trial_ends_at) < new Date()) return null;
+  return { id: data.organization_id, name: org.name, industry: org.industry, role: data.role, planCode: org.plan_code || "free" };
 }
 
 function pickAgent(message: string): Agent {
