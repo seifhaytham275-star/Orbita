@@ -15,9 +15,9 @@ export async function GET() {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const [{ data: plans, error }, { data: memberships }] = await Promise.all([
+  const [{ data: plans, error }, { data: memberships }, { data: payments }] = await Promise.all([
     supabase.from("subscription_plans").select("code,name,monthly_price,currency,limits,features").eq("active", true).order("monthly_price"),
-    supabase.from("memberships").select("organization_id,role,organizations(name,plan_code,subscription_status,subscription_ends_at,trial_ends_at)").eq("user_id", user.id)
+    supabase.from("memberships").select("organization_id,role,organizations(name,plan_code,subscription_status,subscription_ends_at,trial_ends_at)").eq("user_id", user.id),\n    supabase.from("payment_submissions").select("id,amount,currency,status,plan_code,created_at,customer_reference").eq("user_id", user.id).order("created_at",{ascending:false}).limit(30)
   ]);
   if (error) return NextResponse.json({ error: "تعذر تحميل الباقات." }, { status: 503 });
   const receiver = process.env.INSTAPAY_RECEIVER_IDENTIFIER || "01117770325";
@@ -25,7 +25,7 @@ export async function GET() {
     methods: ["instapay"],
     instapay: { receiverIdentifier: receiver, enabled: Boolean(receiver), confirmation: "manual_owner_review" },
     plans: plans ?? [],
-    organizations: memberships ?? []
+    organizations: memberships ?? [],\n    payments: payments ?? []
   });
 }
 
