@@ -38,7 +38,7 @@ export default function OperationsWorkspace({organizationId}:{organizationId:str
    p_organization_id:organizationId,p_product_id:p.id,p_delta:delta,p_note:"تعديل من لوحة المخزون"
   });
   if(adjustError){setError("تعذر تحديث المخزون. لم يتم تسجيل حركة جزئية.");setBusy(false);return;}
-  setNotice("تم تحديث الرصيد وتسجيل حركة المخزون بشكل ذري.");
+  setNotice(`تم تحديث الرصيد إلى ${data} وتسجيل حركة المخزون بشكل ذري.`);
   setRefresh(v=>v+1);setBusy(false);
  }
  async function bookingStatus(b:Booking,status:string){
