@@ -42,5 +42,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <button type="submit">دخول إلى Orbita</button>
     </form>
     <p className="auth-muted">ليس لديك حساب؟ <Link href="/signup">إنشاء حساب</Link></p>
+    <p className="auth-muted"><Link href="/admin/login">دخول إدارة المنصة</Link></p>
   </section></main>;
 }
