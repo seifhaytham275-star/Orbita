@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import SubscriptionControls from "./subscription-controls";
 
@@ -18,7 +19,7 @@ export default async function AdminPage() {
     : { data: [] as {id:string;email:string|null}[] };
   const emailById = new Map((owners || []).map(owner=>[owner.id,owner.email]));
   return <main className="dashboard-shell">
-    <header className="dash-top"><a href="/" className="auth-brand">ORBITA</a><a href="/dashboard">لوحة العميل</a></header>
+    <header className="dash-top"><Link href="/" className="auth-brand">ORBITA</Link><Link href="/dashboard">لوحة العميل</Link></header>
     <section className="dash-welcome"><p className="eyebrow">PLATFORM ADMIN</p><h1>إدارة الشركات</h1><p>راجع حسابات الشركات وحالة الوصول المجاني والمميزات.</p></section>
     <section className="dash-panel">
       <h2>الشركات المسجلة ({companies?.length ?? 0})</h2>
