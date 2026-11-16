@@ -32,7 +32,7 @@ export default function SignupPage() {
         }
       });
       if (error) throw error;
-      setMessage("تم إنشاء طلب الحساب. عند تفعيل قاعدة البيانات، تحصل شركتك على شهر واحد من الوصول المجاني دون بطاقة بنكية أو تجديد تلقائي. راجع بريدك لتأكيد الحساب.");
+      setMessage("تم إرسال طلب إنشاء الحساب. راجع بريدك لتأكيد عنوانك، وبعد التأكيد ستظهر مساحة شركتك تلقائيًا. الوصول المجاني لمدة شهر واحد دون بطاقة بنكية أو تجديد تلقائي.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "تعذر إنشاء الحساب."); }
     finally { setBusy(false); }
   }
