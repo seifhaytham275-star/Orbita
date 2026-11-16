@@ -4,8 +4,8 @@ import { createAdminSession } from "@/lib/admin-auth";
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error("Supabase is not configured.");
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("Server-side admin database access is not configured.");
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
@@ -20,8 +20,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "بيانات الدخول غير صحيحة." }, { status: 400 });
   }
   try {
-    const supabase = getSupabase();
-    const { data, error } = await supabase.rpc("orbita_verify_admin_login", {
+    const { data, error } = await getSupabase().rpc("orbita_verify_admin_login", {
       p_username: input.username,
       p_password: input.password
     });
@@ -29,6 +28,6 @@ export async function POST(request: Request) {
     await createAdminSession(input.username.trim().toLowerCase());
     return NextResponse.json({ success: true });
   } catch {
-    return NextResponse.json({ error: "تعذر الاتصال بخدمة تسجيل الدخول." }, { status: 503 });
+    return NextResponse.json({ error: "إعداد الإدارة غير مكتمل على الخادم." }, { status: 503 });
   }
 }
