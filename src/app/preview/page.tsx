@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const sections = [
   ["Orbita Ledger", "الفواتير والحسابات", "معاينة شكل متابعة الفواتير والمصروفات."],
   ["Orbita Echo", "خدمة العملاء والطلبات", "معاينة تنظيم رسائل العملاء والطلبات."],
@@ -12,7 +14,7 @@ export default function PreviewPage() {
     <main className="dashboard-shell" dir="rtl">
       <header className="dash-top">
         <Link className="auth-brand" href="/">ORBITA</Link>
-        <nav className="home-nav"><a href="/login">تسجيل الدخول</a><a href="/signup">إنشاء حساب</a></nav>
+        <nav className="home-nav"><Link href="/login">تسجيل الدخول</Link><Link href="/signup">إنشاء حساب</Link></nav>
       </header>
       <section className="dash-welcome">
         <p className="eyebrow">READ-ONLY PREVIEW</p>
@@ -34,8 +36,8 @@ export default function PreviewPage() {
         <h2>Astro — دليلك داخل Orbita</h2>
         <p>Astro يعرّفك بأقسام المنصة، ويوضح وظيفة كل وكيل، ويرشدك إلى طريقة البدء. في وضع الزائر، Astro للشرح فقط ولا ينفّذ أوامر ولا يفتح أدوات أو بيانات.</p>
         <div className="actions">
-          <a className="primary" href="/signup">أنشئ حسابك</a>
-          <a className="secondary" href="/login">لديك حساب بالفعل؟</a>
+          <Link className="primary" href="/signup">أنشئ حسابك</Link>
+          <Link className="secondary" href="/login">لديك حساب بالفعل؟</Link>
         </div>
       </section>
       <footer>© {new Date().getFullYear()} Orbita. Visitor preview only.</footer>
