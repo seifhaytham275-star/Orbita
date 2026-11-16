@@ -1,11 +1,11 @@
--- Orbita signup, company usernames, and five-month free-access foundation.
+-- Orbita signup, company usernames, and one-month free-access foundation.
 alter table public.organizations
   add column if not exists industry text not null default 'غير محدد',
   add column if not exists username text,
   add column if not exists subscription_status text not null default 'active'
     check (subscription_status in ('trial','active','suspended','expired')),
   add column if not exists trial_started_at timestamptz not null default now(),
-  add column if not exists trial_ends_at timestamptz not null default (now() + interval '5 months'),
+  add column if not exists trial_ends_at timestamptz not null default (now() + interval '1 month'),
   add column if not exists features_enabled boolean not null default true;
 
 update public.organizations
@@ -13,6 +13,12 @@ set username = coalesce(nullif(username,''),
   coalesce(nullif(trim(both '-' from regexp_replace(lower(name), '[[:space:][:punct:]]+', '-', 'g')),''),'company')
   || '-' || substr(replace(id::text,'-',''),1,5))
 where username is null or username='';
+
+-- Keep previously created trial records aligned with the one-month launch policy.
+update public.organizations
+set trial_ends_at = trial_started_at + interval '1 month'
+where trial_started_at is not null
+  and (trial_ends_at is null or trial_ends_at > trial_started_at + interval '1 month');
 
 create unique index if not exists organizations_username_unique
   on public.organizations (lower(username));
@@ -40,7 +46,7 @@ create trigger protect_subscription_fields_trigger
 before update on public.organizations
 for each row execute function public.protect_subscription_fields();
 
--- New signups receive five months of free access. No card, payment method, or auto-renewal.
+-- New signups receive one month of free access. No card, payment method, or auto-renewal.
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path=public
 as $$
@@ -62,7 +68,7 @@ begin
   on conflict (id) do update set email=excluded.email, display_name=excluded.display_name;
 
   insert into public.organizations(name,created_by,industry,username,subscription_status,trial_started_at,trial_ends_at,features_enabled)
-  values(company_name,new.id,company_industry,company_username,'active',now(),now()+interval '5 months',true)
+  values(company_name,new.id,company_industry,company_username,'active',now(),now()+interval '1 month',true)
   returning id into new_org_id;
 
   insert into public.memberships(organization_id,user_id,role)
@@ -71,7 +77,7 @@ begin
 
   insert into public.audit_logs(organization_id,actor_id,action,target_type,target_id,metadata)
   values(new_org_id,new.id,'organization.created','organization',new_org_id::text,
-    jsonb_build_object('free_access_months',5,'username',company_username));
+    jsonb_build_object('free_access_months',1,'username',company_username));
   return new;
 end;
 $$;
