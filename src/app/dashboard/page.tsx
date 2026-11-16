@@ -1,3 +1,4 @@
+import CreateOrganization from "./create-organization";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -24,6 +25,7 @@ export default async function DashboardPage() {
       <article><span>البريد الإلكتروني</span><strong className="email-value">{user.email}</strong></article>
     </section>
     <section className="dash-panel"><h2>شركاتك</h2>{memberships?.length ? <ul>{memberships.map((m:any)=><li key={m.organization_id}>{m.organizations?.name || "شركة"} — {m.role}</li>)}</ul> : <p>لا توجد شركة مرتبطة بحسابك حاليًا. إنشاء الشركات وإدارة الأعضاء يحتاجان استكمال إعداد قاعدة البيانات.</p>}</section>
+    <CreateOrganization />
     <p className="dash-note">نسخة تأسيسية: لا تستخدمها لمعالجة مدفوعات أو بيانات عملاء حقيقية قبل استكمال الإعداد واختبارات الأمان.</p>
   </main>;
 }
