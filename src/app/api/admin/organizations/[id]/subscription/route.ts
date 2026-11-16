@@ -17,8 +17,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const input = body as { subscription_status?: unknown; features_enabled?: unknown };
   const updates: { subscription_status?: string; features_enabled?: boolean } = {};
   if (input.subscription_status !== undefined) {
-    if (!["trial", "active", "suspended"].includes(String(input.subscription_status))) {
-      return NextResponse.json({ error: "Invalid subscription status" }, { status: 400 });
+    if (!["active", "suspended", "expired"].includes(String(input.subscription_status))) {
+      return NextResponse.json({ error: "Invalid account status" }, { status: 400 });
     }
     updates.subscription_status = String(input.subscription_status);
   }
@@ -33,9 +33,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!url || !serviceKey) return NextResponse.json({ error: "Server admin configuration is incomplete" }, { status: 503 });
   const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const { error } = await admin.from("organizations").update(updates).eq("id", id);
-  if (error) return NextResponse.json({ error: "Could not update subscription" }, { status: 400 });
+  if (error) return NextResponse.json({ error: "Could not update company access" }, { status: 400 });
   await admin.from("audit_logs").insert({
-    organization_id: id, actor_id: user.id, action: "subscription.updated",
+    organization_id: id, actor_id: user.id, action: "company.access_updated",
     target_type: "organization", target_id: id, metadata: updates
   });
   return NextResponse.json({ success: true });
