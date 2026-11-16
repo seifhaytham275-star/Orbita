@@ -31,14 +31,14 @@ export default function SignupPage() {
         }
       });
       if (error) throw error;
-      setMessage("تم إنشاء الحساب وبدء فترة التجربة المجانية لمدة 5 أيام. راجع بريدك لتأكيد الحساب، ثم سجّل الدخول.");
+      setMessage("تم إنشاء طلب الحساب. عند تفعيل قاعدة البيانات، تحصل شركتك على 5 أشهر وصول مجاني دون بطاقة بنكية أو تجديد تلقائي. راجع بريدك لتأكيد الحساب.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "تعذر إنشاء الحساب."); }
     finally { setBusy(false); }
   }
   return <main className="auth-shell"><section className="auth-card">
     <a href="/" className="auth-brand">ORBITA</a><p className="eyebrow">START YOUR WORKSPACE</p>
     <h1>إنشاء حساب شركتك</h1>
-    <p className="auth-muted">أنشئ مساحة شركتك وابدأ تجربة Orbita المجانية لمدة 5 أيام.</p>
+    <p className="auth-muted">5 أشهر وصول مجاني. لا بطاقة بنكية ولا خصم أو تجديد تلقائي.</p>
     <form onSubmit={submit} className="auth-form">
       <label>اسم الشركة<input name="companyName" required minLength={2} maxLength={120} autoComplete="organization"/></label>
       <label>مجال عمل الشركة
@@ -53,13 +53,13 @@ export default function SignupPage() {
           <option value="أخرى">أخرى</option>
         </select>
       </label>
-      <label>البريد الإلكتروني (Gmail أو أي بريد صالح)<input name="email" type="email" required autoComplete="email"/></label>
+      <label>البريد الإلكتروني<input name="email" type="email" required autoComplete="email"/></label>
       <label>كلمة المرور
         <input name="password" type={showPassword ? "text" : "password"} required minLength={12} maxLength={80} autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} />
       </label>
       <button type="button" className="secondary-action" onClick={()=>setPassword(makePassword())}>توليد كلمة مرور قوية</button>
       <button type="button" className="secondary-action" onClick={()=>setShowPassword(value=>!value)}>{showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}</button>
-      <button disabled={busy || password.length < 12}>{busy ? "جارٍ إنشاء الحساب..." : "إنشاء الحساب وبدء التجربة"}</button>
+      <button disabled={busy || password.length < 12}>{busy ? "جارٍ إنشاء الحساب..." : "إنشاء الحساب مجانًا"}</button>
     </form>
     {message && <p className="notice">{message}</p>}
     <p className="auth-muted">لديك حساب؟ <a href="/login">تسجيل الدخول</a></p>
