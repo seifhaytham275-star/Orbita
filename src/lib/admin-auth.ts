@@ -14,7 +14,7 @@ export function verifyAdminCredentials(username: string, password: string) {
   const expectedUsername = process.env.ORBITA_ADMIN_USERNAME?.trim().toLowerCase();
   const saltHex = process.env.ORBITA_ADMIN_PASSWORD_SALT;
   const expectedHash = process.env.ORBITA_ADMIN_PASSWORD_HASH;
-  if (!expectedUsername || !saltHex || !expectedHash || !process.env.ORBITA_ADMIN_SESSION_SECRET) return false;
+  if (!expectedUsername || !saltHex || !/^[0-9a-f]{32}$/i.test(saltHex) || !expectedHash || !/^[0-9a-f]{128}$/i.test(expectedHash) || !process.env.ORBITA_ADMIN_SESSION_SECRET) return false;
   if (!safeEqual(username.trim().toLowerCase(), expectedUsername)) return false;
   const actualHash = scryptSync(password, Buffer.from(saltHex, "hex"), 64).toString("hex");
   return safeEqual(actualHash, expectedHash);
