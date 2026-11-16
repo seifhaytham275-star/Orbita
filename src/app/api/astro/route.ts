@@ -58,9 +58,13 @@ async function executeAgent(
       const name = addMatch[1].trim().replace(/^(?:صنف|منتج)\s*/i, "").slice(0, 180);
       const quantity = Number(addMatch[2]);
       if (!name || !Number.isFinite(quantity) || quantity < 0) throw new Error("اكتب اسم الصنف والكمية بشكل صحيح، مثال: أضف صنف ورق بكمية 20.");
-      const { data, error } = await supabase.from("products").insert({ organization_id: org.id, name, quantity, unit: "قطعة", reorder_level: 0, unit_cost: 0, sale_price: 0 }).select("id,name,quantity,unit").single();
-      if (error) throw new Error("تعذر إضافة الصنف. راجع بيانات المخزون وصلاحيات الحساب.");
-      await supabase.from("stock_movements").insert({ organization_id: org.id, product_id: data.id, movement_type: "in", quantity, note: "رصيد افتتاحي من Astro", created_by: userId });
+      const { data: productId, error } = await supabase.rpc("orbita_create_product", {
+        p_organization_id: org.id, p_name: name, p_quantity: quantity,
+        p_unit: "قطعة", p_reorder_level: 0, p_unit_cost: 0, p_sale_price: 0
+      });
+      if (error || !productId) throw new Error("تعذر إضافة الصنف. لم يتم حفظ رصيد جزئي.");
+      const { data, error: readError } = await supabase.from("products").select("id,name,quantity,unit").eq("id", productId).eq("organization_id", org.id).single();
+      if (readError || !data) throw new Error("تم إنشاء الصنف لكن تعذر تحميل تفاصيله.");
       return { status: "completed", result: { action: "product_created", product: data }, reply: `تمت إضافة الصنف "${data.name}" برصيد ${data.quantity} ${data.unit}.` };
     }
     const { data, error } = await supabase.from("products").select("name,sku,quantity,unit,reorder_level").eq("organization_id", org.id).order("name").limit(100);
