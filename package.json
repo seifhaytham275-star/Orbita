@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "desktop": "electron .",
+    "desktop:dist": "electron-builder --win nsis",
+    "mobile:sync": "cap sync android"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
@@ -14,7 +17,9 @@
     "next": "^15.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",
@@ -22,6 +27,36 @@
     "@types/react-dom": "^19.0.3",
     "eslint": "^9.20.1",
     "eslint-config-next": "^15.2.0",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "@capacitor/cli": "^7.4.3",
+    "electron": "^37.3.1",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.orbita.business",
+    "productName": "Orbita",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "desktop/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }
