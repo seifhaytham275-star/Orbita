@@ -1,7 +1,8 @@
 const { app, BrowserWindow, shell } = require("electron");
-const APP_URL = process.env.ORBITA_WEB_URL;
+const appConfig = require("./app-config.json");
+const APP_URL = appConfig.url || process.env.ORBITA_WEB_URL;
 function createWindow() {
-  if (!APP_URL || !/^https:\/\//i.test(APP_URL)) throw new Error("Set ORBITA_WEB_URL to the deployed HTTPS Orbita website.");
+  if (!APP_URL || !/^https:\/\//i.test(APP_URL)) throw new Error("Orbita requires a deployed HTTPS website URL.");
   const win = new BrowserWindow({
     width: 1440, height: 940, minWidth: 900, minHeight: 650,
     title: "Orbita", backgroundColor: "#080d18", autoHideMenuBar: true,
