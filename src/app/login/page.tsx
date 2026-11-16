@@ -18,18 +18,18 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     if (!identifier.includes("@")) {
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      if (!url || !serviceKey) redirect("/login?message=إعداد%20تسجيل%20الدخول%20باسم%20المستخدم%20غير%20مكتمل");
+      if (!url || !serviceKey) redirect(`/login?message=${encodeURIComponent("إعداد تسجيل الدخول باسم المستخدم غير مكتمل")}`);
       const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
       const { data: company } = await admin.from("organizations").select("created_by").ilike("username", identifier).maybeSingle();
-      if (!company?.created_by) redirect("/login?message=بيانات%20الدخول%20غير%20صحيحة");
+      if (!company?.created_by) redirect(`/login?message=${encodeURIComponent("بيانات الدخول غير صحيحة")}`);
       const { data: owner, error: ownerError } = await admin.auth.admin.getUserById(company.created_by);
-      if (ownerError || !owner.user.email) redirect("/login?message=بيانات%20الدخول%20غير%20صحيحة");
+      if (ownerError || !owner.user.email) redirect(`/login?message=${encodeURIComponent("بيانات الدخول غير صحيحة")}`);
       email = owner.user.email;
     }
 
     const client = await createSupabaseServerClient();
     const { error } = await client.auth.signInWithPassword({ email, password });
-    if (error) redirect("/login?message=بيانات%20الدخول%20غير%20صحيحة");
+    if (error) redirect(`/login?message=${encodeURIComponent("بيانات الدخول غير صحيحة")}`);
     redirect("/dashboard");
   }
   return <main className="auth-shell"><section className="auth-card">
