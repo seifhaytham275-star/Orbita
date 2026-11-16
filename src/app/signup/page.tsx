@@ -33,7 +33,7 @@ export default function SignupPage() {
       });
       if (error) throw error;
       setMessage("تم إنشاء حسابك المجاني وبدء تجهيز مساحة شركتك تلقائيًا. لا تحتاج إلى موافقة إدارية أو طلب تفعيل، ولا توجد بطاقة بنكية أو مدفوعات أو تجديد تلقائي. قد يُطلب منك تأكيد بريدك الإلكتروني لتسجيل الدخول.");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "تعذر إنشاء الحساب."); }
+    } catch (error) { const reason = error instanceof Error ? error.message : ""; setMessage(reason.toLowerCase().includes("email rate limit exceeded") ? "تم تجاوز الحد المؤقت لإرسال رسائل التحقق. لا تعِد التسجيل الآن. إذا كنت سجلت بهذا البريد من قبل، افحص صندوق الوارد والرسائل غير المرغوب فيها وابحث عن رسالة تأكيد Supabase؛ حسابك قد يكون اتعمل بالفعل. جرّب مرة أخرى بعد انتهاء فترة التحديد." : reason || "تعذر إنشاء الحساب."); }
     finally { setBusy(false); }
   }
   return <main className="auth-shell"><section className="auth-card">
