@@ -65,6 +65,10 @@ as $$ select exists(select 1 from public.profiles where id=auth.uid() and platfo
 create or replace function public.is_org_member(target_org uuid)
 returns boolean language sql stable security definer set search_path=public
 as $$ select exists(select 1 from public.memberships where organization_id=target_org and user_id=auth.uid()); $$;
+revoke all on function public.is_platform_admin() from public, anon;
+revoke all on function public.is_org_member(uuid) from public, anon;
+grant execute on function public.is_platform_admin() to authenticated;
+grant execute on function public.is_org_member(uuid) to authenticated;
 
 alter table public.profiles enable row level security;
 alter table public.organizations enable row level security;
@@ -98,6 +102,7 @@ begin
  return new;
 end;
 $$;
+revoke all on function public.handle_new_user() from public, anon, authenticated;
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.handle_new_user();
 
@@ -121,5 +126,5 @@ begin
  return new_org_id;
 end;
 $$;
-revoke all on function public.create_organization(text) from public;
+revoke all on function public.create_organization(text) from public, anon;
 grant execute on function public.create_organization(text) to authenticated;
