@@ -31,11 +31,15 @@ export default function OperationsWorkspace({organizationId}:{organizationId:str
   }catch(e){setError(e instanceof Error?e.message:"حدث خطأ أثناء الحفظ.");setBusy(false);}
  }
  async function changeStock(p:Product,delta:number){
-  if(!organizationId||busy||Number(p.quantity)+delta<0)return;setBusy(true);setError("");const db=createSupabaseBrowserClient();const {data:{user}}=await db.auth.getUser();if(!user){setError("سجّل الدخول مرة أخرى.");setBusy(false);return;}
-  const {error:e}=await db.from("products").update({quantity:Number(p.quantity)+delta}).eq("id",p.id).eq("organization_id",organizationId);
-  if(e){setError("تعذر تحديث الرصيد.");setBusy(false);return;}
-  const {error:m}=await db.from("stock_movements").insert({organization_id:organizationId,product_id:p.id,movement_type:delta>0?"in":"out",quantity:Math.abs(delta),note:"تعديل يدوي من لوحة المخزون",created_by:user.id});
-  if(m)setError("تم تحديث الرصيد، لكن تعذر تسجيل حركة المخزون.");else setNotice("تم تحديث الرصيد وتسجيل الحركة.");setRefresh(v=>v+1);setBusy(false);
+  if(!organizationId||busy||Number(p.quantity)+delta<0)return;
+  setBusy(true);setError("");setNotice("");
+  const db=createSupabaseBrowserClient();
+  const {data,error:adjustError}=await db.rpc("orbita_adjust_stock",{
+   p_organization_id:organizationId,p_product_id:p.id,p_delta:delta,p_note:"تعديل من لوحة المخزون"
+  });
+  if(adjustError){setError("تعذر تحديث المخزون. لم يتم تسجيل حركة جزئية.");setBusy(false);return;}
+  setNotice("تم تحديث الرصيد وتسجيل حركة المخزون بشكل ذري.");
+  setRefresh(v=>v+1);setBusy(false);
  }
  async function bookingStatus(b:Booking,status:string){
   if(!organizationId||busy)return;setBusy(true);const db=createSupabaseBrowserClient();const {error:e}=await db.from("bookings").update({status}).eq("id",b.id).eq("organization_id",organizationId);
