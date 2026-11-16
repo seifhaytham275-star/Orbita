@@ -1,27 +1,26 @@
--- Orbita signup, company usernames, and five-day trial foundation.
+-- Orbita signup, company usernames, and five-month free-access foundation.
 alter table public.organizations
   add column if not exists industry text not null default 'غير محدد',
   add column if not exists username text,
-  add column if not exists subscription_status text not null default 'trial'
+  add column if not exists subscription_status text not null default 'active'
     check (subscription_status in ('trial','active','suspended','expired')),
   add column if not exists trial_started_at timestamptz not null default now(),
-  add column if not exists trial_ends_at timestamptz not null default (now() + interval '5 days'),
+  add column if not exists trial_ends_at timestamptz not null default (now() + interval '5 months'),
   add column if not exists features_enabled boolean not null default true;
 
 -- Existing organizations receive a stable username based on their name and ID.
 update public.organizations
-set username = coalesce(nullif(username,''), 
+set username = coalesce(nullif(username,''),
   coalesce(nullif(trim(both '-' from regexp_replace(lower(name), '[[:space:][:punct:]]+', '-', 'g')),''),'company')
   || '-' || substr(replace(id::text,'-',''),1,5))
 where username is null or username='';
 
 create unique index if not exists organizations_username_unique
   on public.organizations (lower(username));
-
 create index if not exists organizations_trial_ends_idx
   on public.organizations (trial_ends_at);
 
--- Keep subscription controls owner-only: ordinary company owners cannot edit billing/trial state.
+-- Keep subscription controls owner-only: ordinary company owners cannot edit access state.
 create or replace function public.protect_subscription_fields()
 returns trigger language plpgsql security definer set search_path=public
 as $$
@@ -42,7 +41,7 @@ create trigger protect_subscription_fields_trigger
 before update on public.organizations
 for each row execute function public.protect_subscription_fields();
 
--- New signups create their company workspace and five-day trial atomically.
+-- New signups receive five months of free access. No card, payment method, or auto-renewal.
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path=public
 as $$
@@ -64,7 +63,7 @@ begin
   on conflict (id) do update set email=excluded.email, display_name=excluded.display_name;
 
   insert into public.organizations(name,created_by,industry,username,subscription_status,trial_started_at,trial_ends_at,features_enabled)
-  values(company_name,new.id,company_industry,company_username,'trial',now(),now()+interval '5 days',true)
+  values(company_name,new.id,company_industry,company_username,'active',now(),now()+interval '5 months',true)
   returning id into new_org_id;
 
   insert into public.memberships(organization_id,user_id,role)
@@ -73,7 +72,7 @@ begin
 
   insert into public.audit_logs(organization_id,actor_id,action,target_type,target_id,metadata)
   values(new_org_id,new.id,'organization.created','organization',new_org_id::text,
-    jsonb_build_object('trial_days',5,'username',company_username));
+    jsonb_build_object('free_access_months',5,'username',company_username));
   return new;
 end;
 $$;
