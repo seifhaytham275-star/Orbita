@@ -1,4 +1,3 @@
-import CreateOrganization from "./create-organization";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -25,7 +24,6 @@ export default async function DashboardPage() {
       <article><span>البريد الإلكتروني</span><strong className="email-value">{user.email}</strong></article>
     </section>
     <section className="dash-panel"><h2>شركاتك</h2>{memberships?.length ? <ul>{memberships.map((m:any)=><li key={m.organization_id}><strong>{m.organizations?.name || "شركة"}</strong> — {m.role}<br/>اسم المستخدم: {m.organizations?.username || "سيظهر بعد تطبيق تحديث قاعدة البيانات"}<br/>النشاط: {m.organizations?.industry || "غير محدد"}<br/>{m.organizations?.subscription_status === "trial" ? `تجربة مجانية حتى ${new Date(m.organizations.trial_ends_at).toLocaleString("ar-EG")}` : `حالة الاشتراك: ${m.organizations?.subscription_status}`}<br/>{m.organizations?.features_enabled ? "المميزات مفعّلة" : "المميزات موقوفة"}</li>)}</ul> : <p>لا توجد شركة مرتبطة بحسابك حاليًا. إنشاء الشركات وإدارة الأعضاء يحتاجان استكمال إعداد قاعدة البيانات.</p>}</section>
-    {profile?.platform_role === "admin" && <p><a href="/admin">فتح لوحة إدارة الشركات والاشتراكات</a></p>}\n    <CreateOrganization />
-    <p className="dash-note">نسخة تأسيسية: لا تستخدمها لمعالجة مدفوعات أو بيانات عملاء حقيقية قبل استكمال الإعداد واختبارات الأمان.</p>
+    {profile?.platform_role === "admin" && <p><a href="/admin">فتح لوحة إدارة الشركات والاشتراكات</a></p>}\n    <p className="dash-note">نسخة تأسيسية: لا تستخدمها لمعالجة مدفوعات أو بيانات عملاء حقيقية قبل استكمال الإعداد واختبارات الأمان.</p>
   </main>;
 }
