@@ -41,6 +41,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <label>كلمة المرور<input name="password" type="password" autoComplete="current-password" required /></label>
       <button type="submit">دخول إلى Orbita</button>
     </form>
-    <p className="auth-muted">ليس لديك حساب؟ <a href="/signup">إنشاء حساب</a></p>
+    <p className="auth-muted">ليس لديك حساب؟ <Link href="/signup">إنشاء حساب</Link></p>
   </section></main>;
 }
