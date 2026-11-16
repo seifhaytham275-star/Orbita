@@ -36,3 +36,15 @@ Both packages open the hosted Orbita website. They do not run Python or a local 
 The Android artifact is a debug APK for device testing and direct installation, not a Play Store release. A production Android release needs a protected signing keystore. The Windows installer is currently unsigned; commercial distribution without SmartScreen warnings requires a code-signing certificate.
 
 Do not place API keys, service-role keys, payment secrets, passwords, or private signing material in this public repository.
+
+## Company accounts and free trial
+- Company signup collects company name, business activity, email, and password.
+- The database creates a unique company username and starts a five-day trial.
+- Login accepts either the company username or account email plus password.
+- Username login requires the server-only `SUPABASE_SERVICE_ROLE_KEY` environment variable. Never use a `NEXT_PUBLIC_` prefix for this key.
+- Platform administrators can review registered companies and manually activate/suspend subscriptions or disable features at `/admin`.
+- After adding the owner account, promote it once in the Supabase SQL editor:
+  `update public.profiles set platform_role='admin' where email='OWNER_EMAIL_HERE';`
+- Apply migrations in order: `0001_orbita_core.sql`, then `0002_company_accounts_and_trial.sql`.
+- The trial dates and feature switch are stored per company. Each future paid feature/API must check that the subscription is active or the trial has not expired and that `features_enabled` is true before allowing access.
+- Admins cannot view customer passwords. Passwords are securely handled by Supabase Auth; use account recovery/reset flows instead.
