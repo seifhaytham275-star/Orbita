@@ -12,11 +12,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Create source archive
         run: |
-          zip -r Orbita-source.zip . \
+          zip -r /tmp/Orbita-source.zip . \
             -x ".git/*" "node_modules/*" ".next/*" "release/*" "android/.gradle/*" "android/app/build/*" ".env.local" "*.log"
       - uses: actions/upload-artifact@v4
         with:
           name: Orbita-Source-Code
-          path: Orbita-source.zip
+          path: /tmp/Orbita-source.zip
           if-no-files-found: error
           retention-days: 30
