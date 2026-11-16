@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -32,7 +33,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     redirect("/dashboard");
   }
   return <main className="auth-shell"><section className="auth-card">
-    <a href="/" className="auth-brand">ORBITA</a><p className="eyebrow">WELCOME BACK</p>
+    <Link href="/" className="auth-brand">ORBITA</Link><p className="eyebrow">WELCOME BACK</p>
     <h1>تسجيل الدخول</h1><p className="auth-muted">استخدم اسم مستخدم شركتك أو بريدك الإلكتروني.</p>
     {params.message && <p className="notice">{params.message}</p>}
     <form action={signIn} className="auth-form">
