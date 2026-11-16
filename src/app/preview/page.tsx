@@ -11,7 +11,7 @@ export default function PreviewPage() {
   return (
     <main className="dashboard-shell" dir="rtl">
       <header className="dash-top">
-        <a className="auth-brand" href="/">ORBITA</a>
+        <Link className="auth-brand" href="/">ORBITA</Link>
         <nav className="home-nav"><a href="/login">تسجيل الدخول</a><a href="/signup">إنشاء حساب</a></nav>
       </header>
       <section className="dash-welcome">
