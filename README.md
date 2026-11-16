@@ -44,7 +44,7 @@ The Android artifact is a debug APK for device testing and direct installation, 
 
 Do not place API keys, service-role keys, payment secrets, passwords, or private signing material in this public repository.
 
-## Company accounts
+## Astro and specialist agents (MVP)\n- Astro is the in-app assistant and coordinator; it is separate from the six specialist agents.\n- The MVP routes a user's natural-language request to a specialist agent and records a queued task in `agent_tasks`.\n- Apply migration `0003_astro_agent_tasks.sql` after the two core migrations.\n- This first release uses deterministic intent routing; it is not yet a connected local language model and does not claim queued tasks are completed. Real agent execution, model hosting, and approval workflows are subsequent milestones.\n\n## Company accounts
 - Company signup collects company name, business activity, email, and password.
 - The database creates a unique company username and records the one-month free-access period.
 - Login accepts either the company username or account email plus password.
