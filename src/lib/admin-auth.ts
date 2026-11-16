@@ -1,4 +1,4 @@
-import { createHmac, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 
 const COOKIE_NAME = "orbita_admin_session";
@@ -10,25 +10,17 @@ function safeEqual(left: string, right: string) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-export function verifyAdminCredentials(username: string, password: string) {
-  const expectedUsername = process.env.ORBITA_ADMIN_USERNAME?.trim().toLowerCase();
-  const saltHex = process.env.ORBITA_ADMIN_PASSWORD_SALT;
-  const expectedHash = process.env.ORBITA_ADMIN_PASSWORD_HASH;
-  if (!expectedUsername || !saltHex || !/^[0-9a-f]{32}$/i.test(saltHex) || !expectedHash || !/^[0-9a-f]{128}$/i.test(expectedHash) || !process.env.ORBITA_ADMIN_SESSION_SECRET) return false;
-  if (!safeEqual(username.trim().toLowerCase(), expectedUsername)) return false;
-  const actualHash = scryptSync(password, Buffer.from(saltHex, "hex"), 64).toString("hex");
-  return safeEqual(actualHash, expectedHash);
-}
-
 function sign(value: string) {
   const secret = process.env.ORBITA_ADMIN_SESSION_SECRET;
   if (!secret) throw new Error("Admin session secret is not configured.");
   return createHmac("sha256", secret).update(value).digest("hex");
 }
 
-export async function createAdminSession() {
-  const expiresAt = Math.floor(Date.now() / 1000) + SESSION_SECONDS;
-  const payload = String(expiresAt);
+export async function createAdminSession(username: string) {
+  const payload = Buffer.from(JSON.stringify({
+    username,
+    expiresAt: Math.floor(Date.now() / 1000) + SESSION_SECONDS
+  })).toString("base64url");
   const token = payload + "." + sign(payload);
   const store = await cookies();
   store.set(COOKIE_NAME, token, {
@@ -44,21 +36,17 @@ export async function getAdminSession() {
   const store = await cookies();
   const token = store.get(COOKIE_NAME)?.value;
   if (!token) return null;
-  const [expiresAt, signature, extra] = token.split(".");
-  if (!expiresAt || !signature || extra || !/^\d+$/.test(expiresAt)) return null;
-  const expires = Number(expiresAt);
-  if (!Number.isSafeInteger(expires) || expires <= Math.floor(Date.now() / 1000)) return null;
+  const [payload, signature, extra] = token.split(".");
+  if (!payload || !signature || extra) return null;
   try {
-    if (!safeEqual(signature, sign(expiresAt))) return null;
+    if (!safeEqual(signature, sign(payload))) return null;
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { username?: unknown; expiresAt?: unknown };
+    if (typeof data.username !== "string" || typeof data.expiresAt !== "number" || !Number.isSafeInteger(data.expiresAt) || data.expiresAt <= Math.floor(Date.now() / 1000)) return null;
+    return { username: data.username, expiresAt: data.expiresAt };
   } catch { return null; }
-  return { username: process.env.ORBITA_ADMIN_USERNAME || "admin", expiresAt: expires };
 }
 
 export async function clearAdminSession() {
   const store = await cookies();
   store.set(COOKIE_NAME, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: 0 });
-}
-
-export function isAdminAuthConfigured() {
-  return Boolean(process.env.ORBITA_ADMIN_USERNAME && process.env.ORBITA_ADMIN_PASSWORD_SALT && process.env.ORBITA_ADMIN_PASSWORD_HASH && process.env.ORBITA_ADMIN_SESSION_SECRET);
 }
