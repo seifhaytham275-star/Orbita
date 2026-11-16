@@ -54,7 +54,7 @@ export default function SignupPage() {
       </label>
       <label>البريد الإلكتروني (Gmail أو أي بريد صالح)<input name="email" type="email" required autoComplete="email"/></label>
       <label>كلمة المرور
-        <input name="password" type="text" required minLength={12} maxLength={80} autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} />
+        <input name="password" type="password" required minLength={12} maxLength={80} autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} />
       </label>
       <button type="button" className="secondary-action" onClick={()=>setPassword(makePassword())}>توليد كلمة مرور قوية</button>
       <button disabled={busy || password.length < 12}>{busy ? "جارٍ إنشاء الحساب..." : "إنشاء الحساب وبدء التجربة"}</button>
