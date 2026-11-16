@@ -49,6 +49,7 @@ Astro currently performs deterministic intent routing and supported database ope
    - `supabase/migrations/0003_astro_agent_tasks.sql`
    - `supabase/migrations/0004_business_operations_and_agent_security.sql`
    - `supabase/migrations/0005_atomic_stock_adjustment.sql`
+   - `supabase/migrations/0006_atomic_product_creation.sql`
 
    Migration 0004 is idempotent for existing business tables. Migration 0005 adds the atomic inventory adjustment function.
 
