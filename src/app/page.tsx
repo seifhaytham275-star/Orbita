@@ -18,7 +18,7 @@ export default function Home() {
         <p className="eyebrow">YOUR BUSINESS, IN ORBIT</p>
         <h1>إدارة شغلك، <span>بذكاء.</span></h1>
         <p className="intro">مساحة واحدة تساعدك تدير عمليات شركتك، وتتابع التفاصيل من غير ما تتوه بين أدوات كتير.</p>
-        <div className="actions"><a className="primary" href="/signup">ابدأ مجانًا لمدة شهر واحد</a><a className="secondary" href="#agents">استكشف الوكلاء</a></div>
+        <div className="actions"><a className="primary" href="/signup">ابدأ مجانًا لمدة شهر واحد</a><a className="secondary" href="/preview">شاهد جولة تعريفية</a></div>
         <p className="device-note">حساب واحد يعمل من الموبايل واللابتوب، بنفس بيانات الدخول. لا بطاقة بنكية ولا تجديد تلقائي.</p>
       </section>
       <section id="agents" className="section">
