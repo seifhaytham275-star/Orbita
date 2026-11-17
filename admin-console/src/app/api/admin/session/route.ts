@@ -65,9 +65,10 @@ export async function POST(request: Request) {
       );
     }
 
-    await setAdminSessionCookie("seif");
+    const normalizedUsername = username.toLowerCase().replace(/\s+/g, " ");
+    await setAdminSessionCookie(normalizedUsername);
     return NextResponse.json(
-      { authenticated: true, username: "seif" },
+      { authenticated: true, username: normalizedUsername },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch {
