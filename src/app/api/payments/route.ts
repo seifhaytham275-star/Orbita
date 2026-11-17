@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const paymentSchema = z.object({
   organizationId: z.string().uuid(),
-  planCode: z.enum(["pro", "business"]),
+  planCode: z.enum(["pro", "max", "business"]),
   billingPeriodMonths: z.number().int().min(1).max(12).default(1),
   customerReference: z.string().trim().min(3).max(160)
 });

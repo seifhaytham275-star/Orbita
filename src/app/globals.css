@@ -28,7 +28,7 @@
 .pricing-hero h1 span{color:var(--accent)}
 .pricing-hero>p:not(.eyebrow){color:var(--muted);line-height:2}
 .pricing-disclaimer{display:inline-block;margin-top:12px;padding:8px 12px;border:1px solid #735c32;border-radius:9px;color:#f3d69c;font-size:12px}
-.pricing-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;align-items:stretch}
+.pricing-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px;align-items:stretch}
 .plan-card{position:relative;padding:24px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(150deg,#132139,#0d1524);display:flex;flex-direction:column}
 .plan-featured{border-color:var(--accent);box-shadow:0 12px 40px #0003}
 .plan-tag{font-size:11px;color:var(--accent);font-weight:700}
@@ -47,6 +47,7 @@
 .pricing-notes h2{font-size:20px;margin-top:0}
 .pricing-notes ul{margin-bottom:0}
 .pricing-shell footer a{color:var(--accent)}
+@media(max-width:1100px){.pricing-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:800px){.pricing-grid{grid-template-columns:1fr}.plan-description{min-height:0}.pricing-teaser{align-items:flex-start;flex-direction:column}}
 @media(max-width:520px){.home-nav,.pricing-nav{gap:10px}.home-nav a,.pricing-nav a{font-size:11px}.pricing-hero{padding:55px 0 28px}.pricing-teaser{padding:18px}}
 
