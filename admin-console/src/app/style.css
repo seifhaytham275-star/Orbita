@@ -109,3 +109,8 @@ tr:last-child td{border-bottom:0}
 @media(max-width:1120px){.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.admin-shell{grid-template-columns:1fr}.sidebar{min-height:auto;padding:16px}.brand-row{padding:0 4px 15px}.nav-list{display:flex;overflow-x:auto;padding-bottom:4px}.nav-item{width:auto;flex:0 0 auto;white-space:nowrap}.sidebar-label,.sidebar-bottom{display:none}.admin-main{padding:24px 16px}.topbar{flex-direction:column}.top-actions{width:100%}.welcome-panel{padding:22px;min-height:unset}.welcome-panel h2{font-size:20px}.orbita-symbol{flex-basis:66px;width:66px;height:66px;border-radius:20px;font-size:42px}.admin-footer{flex-direction:column}.login-card{padding:27px 22px}}
 @media(max-width:420px){.stats-grid{grid-template-columns:1fr 1fr;gap:9px}.stat-card{padding:14px}.stat-card strong{font-size:24px}.orbita-symbol{display:none}.top-actions .ghost-button{flex:1}}
+
+.subscription-controls{display:flex;align-items:center;gap:7px;min-width:330px}
+.subscription-controls select{min-width:88px;max-width:130px;padding:9px 10px;border:1px solid #334463;border-radius:9px;background:#111d33;color:#e8edff;font:inherit;font-size:11px}
+.subscription-controls .primary-button{white-space:nowrap;padding:9px 12px;font-size:11px}
+@media(max-width:760px){.subscription-controls{min-width:280px;flex-wrap:wrap}.subscription-controls select{flex:1}}
