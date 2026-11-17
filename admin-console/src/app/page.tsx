@@ -1,6 +1,12 @@
 "use client";
 import {useEffect,useState} from "react";
-type Data={admin:string;stats:{businesses:number;users:number;pendingPayments:number;revenue:number;agentTasks:number;pendingApprovals:number};organizations:any[];payments:any[];tasks:any[];logs:any[];approvals:any[];users:any[];usageByAgent:Record<string,number>};
+type Organization={id:string;name:string;username:string;plan_code:string;subscription_status:string;industry:string};
+type Payment={id:string;amount:number;currency:string;plan_code:string|null;customer_reference:string|null;status:string};
+type AgentTask={id:string;agent_name:string;status:string;title:string;created_at:string};
+type AuditLog={id:string;action:string;target_type:string|null;target_id:string|null;created_at:string};
+type Approval={id:string;status:string;requested_action:string;organization_id:string;created_at:string};
+type AdminUser={id:string;email:string|null;created_at:string;banned_until:string|null};
+type Data={admin:string;stats:{businesses:number;users:number;pendingPayments:number;revenue:number;agentTasks:number;pendingApprovals:number};organizations:Organization[];payments:Payment[];tasks:AgentTask[];logs:AuditLog[];approvals:Approval[];users:AdminUser[];usageByAgent:Record<string,number>};
 export default function AdminHome(){const [data,setData]=useState<Data|null>(null);const [error,setError]=useState("");const [busy,setBusy]=useState("");async function load(){const r=await fetch("/api/overview",{cache:"no-store"});const d=await r.json();if(r.status===401){location.href="/login";return;}if(!r.ok)throw new Error(d.error||"تعذر التحميل");setData(d);}useEffect(()=>{load().catch(e=>setError(e.message));},[]);
 async function act(url:string,body:unknown){setBusy(url);try{const r=await fetch(url,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw new Error(d.error||"فشل التحديث");await load();}catch(e){setError(e instanceof Error?e.message:"حدث خطأ");}finally{setBusy("");}}
 async function logout(){await fetch("/api/logout",{method:"POST"});location.href="/login";}
