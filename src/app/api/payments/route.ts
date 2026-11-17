@@ -21,7 +21,7 @@ export async function GET() {
     supabase.from("payment_submissions").select("id,amount,currency,status,plan_code,created_at,customer_reference").eq("user_id", user.id).order("created_at",{ascending:false}).limit(30)
   ]);
   if (error) return NextResponse.json({ error: "تعذر تحميل الباقات." }, { status: 503 });
-  const receiver = process.env.INSTAPAY_RECEIVER_IDENTIFIER || "01117770325";
+  const receiver = process.env.INSTAPAY_RECEIVER_IDENTIFIER?.trim() || null;
   return NextResponse.json({
     methods: ["instapay"],
     instapay: { receiverIdentifier: receiver, enabled: Boolean(receiver), confirmation: "manual_owner_review" },
