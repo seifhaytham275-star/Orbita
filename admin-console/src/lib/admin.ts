@@ -72,7 +72,7 @@ function verifyAdminSessionToken(token: string): AdminSession | null {
 
     if (
       typeof parsed.username !== "string" ||
-      parsed.username !== "seif" ||
+      parsed.username !== "seif haytham" ||
       typeof parsed.exp !== "number" ||
       parsed.exp <= Math.floor(Date.now() / 1000)
     ) {
