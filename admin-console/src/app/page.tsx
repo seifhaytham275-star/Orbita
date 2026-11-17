@@ -312,6 +312,7 @@ export default function AdminPage() {
             {error ? <p className="form-error" role="alert">{error}</p> : null}
             <button type="submit" disabled={loading}>{loading ? "جارٍ التحقق…" : "دخول لوحة الإدارة"}</button>
           </form>
+          <p className="setup-link"><a href="/setup">ليس لديك حساب إدارة؟ إنشاء حساب الإدارة لأول مرة</a></p>
           <div className="preview-notice">
             <strong>وصول محمي</strong>
             <span>الجلسة مشفرة ومؤقتة، ومحاولات الدخول الفاشلة محدودة من قاعدة البيانات.</span>
