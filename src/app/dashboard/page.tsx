@@ -11,7 +11,7 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
   const [{ data: profile }, { data: memberships }] = await Promise.all([
     supabase.from("profiles").select("display_name,platform_role").eq("id",user.id).maybeSingle(),
-    supabase.from("memberships").select("organization_id,role,organizations(name,username,industry,trial_ends_at,subscription_status,features_enabled)").eq("user_id",user.id)
+    supabase.from("memberships").select("organization_id,role,organizations(name,username,industry,trial_ends_at,subscription_ends_at,subscription_status,features_enabled)").eq("user_id",user.id)
   ]);
   async function signOut() {
     "use server";
@@ -28,7 +28,19 @@ export default async function DashboardPage() {
       <article><span>الشركات المرتبطة</span><strong>{memberships?.length ?? 0}</strong></article>
       <article><span>البريد الإلكتروني</span><strong className="email-value">{user.email}</strong></article>
     </section>
-    <section className="dash-panel"><h2>شركاتك</h2><p><Link href="/dashboard/billing">إدارة الباقة والدفع عبر InstaPay</Link></p>{memberships?.length ? <ul>{memberships.map((m)=><li key={m.organization_id}><strong>{m.organizations?.[0]?.name || "شركة"}</strong> — {m.role}<br/>اسم المستخدم: {m.organizations?.[0]?.username || "سيظهر بعد تطبيق تحديث قاعدة البيانات"}<br/>النشاط: {m.organizations?.[0]?.industry || "غير محدد"}<br/>{m.organizations?.[0]?.subscription_status === "active" ? `وصول مجاني حتى ${new Date(m.organizations[0].trial_ends_at).toLocaleDateString("ar-EG")}` : `حالة الحساب: ${m.organizations?.[0]?.subscription_status}`}<br/>{m.organizations?.[0]?.features_enabled ? "المميزات مفعّلة" : "المميزات موقوفة"}</li>)}</ul> : <p>لم تظهر مساحة الشركة المرتبطة بحسابك بعد. حدّث الصفحة بعد لحظات، وإذا استمرت المشكلة تواصل مع الدعم.</p>}</section>
+    <section className="dash-panel"><h2>شركاتك</h2><p><Link href="/dashboard/billing">إدارة الباقة والدفع عبر InstaPay</Link></p>{memberships?.length ? <ul>{memberships.map((m) => {
+      const organization = Array.isArray(m.organizations) ? m.organizations[0] : m.organizations;
+      const accessEndsAt = organization?.subscription_ends_at ?? organization?.trial_ends_at;
+      return <li key={m.organization_id}>
+        <strong>{organization?.name || "شركة"}</strong> — {m.role}<br/>
+        اسم المستخدم: {organization?.username || "سيظهر بعد تطبيق تحديث قاعدة البيانات"}<br/>
+        النشاط: {organization?.industry || "غير محدد"}<br/>
+        {["active", "trial"].includes(organization?.subscription_status || "") && accessEndsAt
+          ? `الوصول حتى ${new Date(accessEndsAt).toLocaleDateString("ar-EG")}`
+          : `حالة الحساب: ${organization?.subscription_status || "غير معروفة"}`}<br/>
+        {organization?.features_enabled ? "المميزات مفعّلة" : "المميزات موقوفة"}
+      </li>;
+    })}</ul> : <p>لم تظهر مساحة الشركة المرتبطة بحسابك بعد. حدّث الصفحة بعد لحظات، وإذا استمرت المشكلة تواصل مع الدعم.</p>}</section>
     {profile?.platform_role === "admin" && <p><Link href="/admin">فتح لوحة إدارة الشركات</Link></p>}
     <OperationsWorkspace organizationId={activeOrgId} />
     <AstroWorkspace organizationId={activeOrgId} />
