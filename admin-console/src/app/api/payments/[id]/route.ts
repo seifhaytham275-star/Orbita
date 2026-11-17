@@ -1,5 +1,0 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
-import { adminClient, getSession, originAllowed } from "@/lib/admin";
-const schema=z.object({status:z.enum(["paid","rejected"])});
-export async function PATCH(request:Request,context:{params:Promise<{id:string}>}){if(!originAllowed(request))return NextResponse.json({error:"Forbidden"},{status:403});if(!await getSession())return NextResponse.json({error:"Unauthorized"},{status:401});const parsed=schema.safeParse(await request.json().catch(()=>null));if(!parsed.success)return NextResponse.json({error:"Invalid decision"},{status:400});const {id}=await context.params;if(!/^[0-9a-f-]{36}$/i.test(id))return NextResponse.json({error:"Invalid id"},{status:400});const {data,error}=await adminClient().rpc("orbita_review_payment",{p_payment_id:id,p_decision:parsed.data.status,p_admin_username:(await getSession())!.username});if(error||!data)return NextResponse.json({error:"تعذر اعتماد التحويل أو سبق مراجعته."},{status:409});return NextResponse.json({payment:data});}

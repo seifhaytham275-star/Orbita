@@ -1,21 +1,5 @@
-"use client";
-import {useEffect,useState} from "react";
-type Organization={id:string;name:string;username:string;plan_code:string;subscription_status:string;industry:string};
-type Payment={id:string;amount:number;currency:string;plan_code:string|null;customer_reference:string|null;status:string};
-type AgentTask={id:string;agent_name:string;status:string;title:string;created_at:string};
-type AuditLog={id:string;action:string;target_type:string|null;target_id:string|null;created_at:string};
-type Approval={id:string;status:string;requested_action:string;organization_id:string;created_at:string};
-type AdminUser={id:string;email:string|null;created_at:string;banned_until:string|null};
-type Data={admin:string;stats:{businesses:number;users:number;pendingPayments:number;revenue:number;agentTasks:number;pendingApprovals:number};organizations:Organization[];payments:Payment[];tasks:AgentTask[];logs:AuditLog[];approvals:Approval[];users:AdminUser[];usageByAgent:Record<string,number>};
-export default function AdminHome(){const [data,setData]=useState<Data|null>(null);const [error,setError]=useState("");const [busy,setBusy]=useState("");async function load(){const r=await fetch("/api/overview",{cache:"no-store"});const d=await r.json();if(r.status===401){location.href="/login";return;}if(!r.ok)throw new Error(d.error||"تعذر التحميل");setData(d);}useEffect(()=>{load().catch(e=>setError(e.message));},[]);
-async function act(url:string,body:unknown){setBusy(url);try{const r=await fetch(url,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw new Error(d.error||"فشل التحديث");await load();}catch(e){setError(e instanceof Error?e.message:"حدث خطأ");}finally{setBusy("");}}
-async function logout(){await fetch("/api/logout",{method:"POST"});location.href="/login";}
-if(!data)return <main className="wrap"><h1>Orbita Admin</h1><p>{error||"جارٍ تحميل البيانات..."}</p></main>;
-return <main className="wrap"><header><div><small>PRIVATE ADMIN CONSOLE</small><h1>إدارة Orbita</h1><p>مسجل الدخول: {data.admin}</p></div><button onClick={logout}>تسجيل الخروج</button></header>{error&&<p className="error">{error}</p>}
-<section className="stats">{[["الشركات",data.stats.businesses],["المستخدمون",data.stats.users],["طلبات دفع معلقة",data.stats.pendingPayments],["الإيراد (آخر 200 عملية)",new Intl.NumberFormat("ar-EG",{style:"currency",currency:"EGP"}).format(data.stats.revenue)],["مهام الوكلاء",data.stats.agentTasks],["موافقات معلقة",data.stats.pendingApprovals]].map(([k,v])=><article key={String(k)}><small>{k}</small><strong>{v}</strong></article>)}</section>
-<section><h2>الشركات والاشتراكات</h2><div className="table">{data.organizations.map(o=><article key={o.id}><b>{o.name}</b><span>{o.username} · {o.plan_code} · {o.subscription_status}</span><span>{o.industry}</span><select value={o.subscription_status} onChange={e=>act("/api/organizations/"+o.id,{subscription_status:e.target.value})} disabled={busy==="/api/organizations/"+o.id}><option value="trial">تجريبي</option><option value="active">نشط</option><option value="suspended">موقوف</option><option value="expired">منتهي</option></select></article>)}</div></section>
-<section><h2>المدفوعات عبر InstaPay</h2><div className="table">{data.payments.map(p=><article key={p.id}><b>{p.amount} {p.currency} · {p.plan_code||"—"}</b><span>مرجع: {p.customer_reference||"—"} · {p.status}</span><span>{p.id}</span>{p.status==="pending_review"&&<div className="actions"><button disabled={!!busy} onClick={()=>act("/api/payments/"+p.id,{status:"paid"})}>تأكيد الاستلام وتفعيل الباقة</button><button className="danger" disabled={!!busy} onClick={()=>act("/api/payments/"+p.id,{status:"rejected"})}>رفض</button></div>}</article>)}</div></section>
-<section><h2>إدارة المستخدمين</h2><div className="table">{data.users.map(u=><article key={u.id}><b>{u.email||u.id}</b><span>{u.id}</span><span>تاريخ التسجيل: {new Date(u.created_at).toLocaleDateString("ar-EG")}</span><span>{u.banned_until?"محظور":"نشط"}</span><button className={u.banned_until?"":"danger"} onClick={()=>act("/api/users/"+u.id,{suspended:!u.banned_until})}>{u.banned_until?"إعادة تفعيل المستخدم":"إيقاف المستخدم"}</button></article>)}</div></section>
-<section><h2>استخدام الوكلاء</h2><p>الأرقام التالية من آخر 500 مهمة مسجلة.</p><div className="stats">{Object.entries(data.usageByAgent).map(([name,count])=><article key={name}><small>{name}</small><strong>{count}</strong></article>)}</div><div className="table">{data.tasks.slice(0,40).map(t=><article key={t.id}><b>{t.agent_name} · {t.status}</b><span>{t.title}</span><small>{new Date(t.created_at).toLocaleString("ar-EG")}</small></article>)}</div></section>
-<section><h2>طابور الموافقات</h2><div className="table">{data.approvals.slice(0,50).map(a=><article key={a.id}><b>{a.status} · {a.requested_action}</b><small>{a.organization_id} · {new Date(a.created_at).toLocaleString("ar-EG")}</small></article>)}</div></section>
-<section><h2>سجل الإجراءات</h2><div className="table">{data.logs.slice(0,60).map(l=><article key={l.id}><b>{l.action}</b><span>{l.target_type||"—"} · {l.target_id||"—"}</span><small>{new Date(l.created_at).toLocaleString("ar-EG")}</small></article>)}</div></section></main>}
+import { notFound } from "next/navigation";
+
+export default function DisabledAdminConsole(): never {
+  notFound();
+}

@@ -1,5 +1,0 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
-import { adminClient, getSession, originAllowed } from "@/lib/admin";
-const schema=z.object({suspended:z.boolean()});
-export async function PATCH(request:Request,context:{params:Promise<{id:string}>}){if(!originAllowed(request))return NextResponse.json({error:"Forbidden"},{status:403});if(!await getSession())return NextResponse.json({error:"Unauthorized"},{status:401});const parsed=schema.safeParse(await request.json().catch(()=>null));if(!parsed.success)return NextResponse.json({error:"Invalid status"},{status:400});const {id}=await context.params;if(!/^[0-9a-f-]{36}$/i.test(id))return NextResponse.json({error:"Invalid user id"},{status:400});const db=adminClient();const {error}=await db.auth.admin.updateUserById(id,{ban_duration:parsed.data.suspended?"876000h":"none"});if(error)return NextResponse.json({error:"تعذر تحديث حالة المستخدم."},{status:409});await db.from("audit_logs").insert({actor_id:null,action:parsed.data.suspended?"admin.user_suspended":"admin.user_reactivated",target_type:"user",target_id:id,metadata:{}});return NextResponse.json({success:true});}
