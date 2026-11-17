@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Build Windows installer
-        run: npm run desktop:dist
+        run: npm run desktop:dist -- --publish never
       - uses: actions/upload-artifact@v4
         with:
           name: Orbita-Windows-Installer
@@ -49,7 +49,10 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - uses: android-actions/setup-android@v3
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools,platforms;android-35,build-tools;35.0.0"
       - name: Validate deployment URL
         run: |
           if [[ ! "$ORBITA_WEB_URL" =~ ^https:// ]]; then
