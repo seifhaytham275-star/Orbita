@@ -21,7 +21,7 @@ export default async function DashboardPage() {
   }
   const activeOrgId = memberships?.[0]?.organization_id ?? null;
   return <main className="dashboard-shell">
-    <header className="dash-top"><Link href="/" className="auth-brand">ORBITA</Link><form action={signOut}><button className="signout">تسجيل الخروج</button></form></header>
+    <header className="dash-top"><Link href="/" className="auth-brand">ORBITA</Link><div className="dash-header-actions"><Link href="/dashboard/settings" className="settings-header-link">الإعدادات</Link><form action={signOut}><button className="signout">تسجيل الخروج</button></form></div></header>
     <section className="dash-welcome"><p className="eyebrow">YOUR WORKSPACE</p><h1>أهلًا {profile?.display_name || user.email}</h1><p>دي مساحة عملك. من هنا تتابع شركتك والمهام التي يوجّهها Astro إلى الوكلاء المتخصصين.</p></section>
     <section className="dash-grid">
       <article><span>نوع الحساب</span><strong>{profile?.platform_role === "admin" ? "مدير المنصة" : "عميل"}</strong></article>
