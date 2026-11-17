@@ -11,9 +11,9 @@ export default function BillingWorkspace({ organizationId }: { organizationId: s
   const [reference,setReference]=useState("");
   const [message,setMessage]=useState("");
   const [busy,setBusy]=useState(false);
-  const [receiver,setReceiver]=useState("01117770325");
+  const [receiver,setReceiver]=useState<string | null>(null);
   const [history,setHistory]=useState<Array<{id:string;status:string;amount:number;plan_code:string;created_at:string}>>([]);
-  useEffect(()=>{let live=true;fetch("/api/payments").then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error||"تعذر تحميل الاشتراكات");if(!live)return;setPlans(d.plans||[]);setOrgs(d.organizations||[]);setHistory(d.payments||[]);setReceiver(d.instapay?.receiverIdentifier||"01117770325");}).catch(e=>live&&setMessage(e.message));return()=>{live=false}},[]);
+  useEffect(()=>{let live=true;fetch("/api/payments").then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error||"تعذر تحميل الاشتراكات");if(!live)return;setPlans(d.plans||[]);setOrgs(d.organizations||[]);setHistory(d.payments||[]);setReceiver(d.instapay?.receiverIdentifier||null);}).catch(e=>live&&setMessage(e.message));return()=>{live=false}},[]);
   const orgId=organizationId || orgs[0]?.organization_id || "";
   const plan=useMemo(()=>plans.find(p=>p.code===planCode),[plans,planCode]);
   const total=Number(plan?.monthly_price||0)*months;
@@ -24,9 +24,9 @@ export default function BillingWorkspace({ organizationId }: { organizationId: s
       <label>الباقة<select value={planCode} onChange={e=>setPlanCode(e.target.value)}>{plans.filter(p=>p.monthly_price>0).map(p=><option key={p.code} value={p.code}>{p.name}</option>)}</select></label>
       <label>مدة الاشتراك<select value={months} onChange={e=>setMonths(Number(e.target.value))}>{[1,3,6,12].map(m=><option key={m} value={m}>{m} {m===1?"شهر":"شهور"}</option>)}</select></label>
       <p><strong>المبلغ المطلوب: {new Intl.NumberFormat("ar-EG",{style:"currency",currency:"EGP"}).format(total)}</strong></p>
-      <div className="notice"><strong>حوّل إلى InstaPay:</strong><p dir="ltr">{receiver}</p><button type="button" className="secondary-action" onClick={()=>navigator.clipboard?.writeText(receiver)}>نسخ الرقم</button><p>اكتب رقم مرجع التحويل بعد إتمام التحويل.</p></div>
+{receiver ? <div className="notice"><strong>حوّل إلى InstaPay:</strong><p dir="ltr">{receiver}</p><button type="button" className="secondary-action" onClick={()=>navigator.clipboard?.writeText(receiver)}>نسخ الرقم</button><p>اكتب رقم مرجع التحويل بعد إتمام التحويل.</p></div> : <div className="notice"><strong>الدفع غير متاح مؤقتًا</strong><p>لم يتم إعداد وسيلة استقبال InstaPay بعد. لن يتم قبول طلب دفع حتى تجهزها إدارة المنصة.</p></div>}
       <label>رقم مرجع التحويل<input value={reference} onChange={e=>setReference(e.target.value)} minLength={3} maxLength={160} required placeholder="رقم العملية الظاهر في InstaPay"/></label>
-      <button disabled={busy||!plan||!reference.trim()}>{busy?"جارٍ تسجيل الطلب...":"إرسال طلب مراجعة الدفع"}</button>
+      <button disabled={busy||!plan||!reference.trim()||!receiver}>{busy?"جارٍ تسجيل الطلب...":"إرسال طلب مراجعة الدفع"}</button>
     </form>
     {message&&<p className="notice">{message}</p>}
     <h3>سجل عمليات الدفع</h3><ul>{history.map(p=><li key={p.id}>{p.plan_code} · {p.amount} جنيه · {p.status==="pending_review"?"قيد المراجعة":p.status==="paid"?"تم التأكيد":p.status==="rejected"?"مرفوض":p.status} · {new Date(p.created_at).toLocaleDateString("ar-EG")}</li>)}</ul>
