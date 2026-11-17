@@ -2,9 +2,17 @@ name: Build Orbita installers
 on:
   workflow_dispatch:
   push:
+    branches: [main]
+    paths:
+      - ".github/workflows/build-installers.yml"
     tags: ["v*"]
+
 permissions:
   contents: read
+
+env:
+  ORBITA_WEB_URL: ${{ vars.ORBITA_WEB_URL || 'https://orbita-seifhaytham275-star.vercel.app' }}
+
 jobs:
   windows-installer:
     runs-on: windows-latest
@@ -16,16 +24,19 @@ jobs:
       - name: Validate and embed deployment URL
         shell: pwsh
         run: |
-          $url = "${{ vars.ORBITA_WEB_URL }}"
-          if ($url -notmatch '^https://') { throw "Set repository variable ORBITA_WEB_URL to the deployed HTTPS website." }
+          $url = "$env:ORBITA_WEB_URL"
+          if ($url -notmatch '^https://') { throw "Set ORBITA_WEB_URL to the deployed HTTPS website." }
           @{ url = $url } | ConvertTo-Json | Set-Content desktop/app-config.json
-      - run: npm install
-      - run: npm run desktop:dist
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build Windows installer
+        run: npm run desktop:dist
       - uses: actions/upload-artifact@v4
         with:
           name: Orbita-Windows-Installer
           path: release/*.exe
           if-no-files-found: error
+          retention-days: 14
 
   android-apk:
     runs-on: ubuntu-latest
@@ -34,20 +45,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: android-actions/setup-android@v3
       - name: Validate deployment URL
         run: |
           if [[ ! "$ORBITA_WEB_URL" =~ ^https:// ]]; then
-            echo "Set repository variable ORBITA_WEB_URL to the deployed HTTPS website."
+            echo "Set ORBITA_WEB_URL to the deployed HTTPS website."
             exit 1
           fi
-        env:
-          ORBITA_WEB_URL: ${{ vars.ORBITA_WEB_URL }}
-      - run: npm install
-      - run: npx cap add android
-      - run: npx cap sync android
-        env:
-          ORBITA_WEB_URL: ${{ vars.ORBITA_WEB_URL }}
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Generate Android project
+        run: npx cap add android
+      - name: Sync hosted Orbita website
+        run: npx cap sync android
       - name: Build installable debug APK
         run: |
           cd android
@@ -58,3 +72,4 @@ jobs:
           name: Orbita-Android-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+          retention-days: 14
