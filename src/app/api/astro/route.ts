@@ -152,8 +152,12 @@ export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return fail("سجّل الدخول أولًا.", 401);
-  const body = await request.json().catch(() => null) as { message?: string } | null;
-  const message = body?.message?.trim();
+  const body: unknown = await request.json().catch(() => null);
+  const rawMessage =
+    body && typeof body === "object" && !Array.isArray(body) && "message" in body
+      ? (body as { message?: unknown }).message
+      : undefined;
+  const message = typeof rawMessage === "string" ? rawMessage.trim() : "";
   if (!message || message.length > 1200) return fail("اكتب مهمة واضحة (حتى 1200 حرف).");
   const org = await getContext(supabase, user.id);
   if (!org) return fail("لا توجد شركة نشطة مرتبطة بحسابك أو انتهت فترة الوصول.", 403);
