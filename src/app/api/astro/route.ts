@@ -19,13 +19,63 @@ const routing: Array<{ agent: Agent; keywords: string[] }> = [
 const money = (value: number) => new Intl.NumberFormat("ar-EG", { style: "currency", currency: "EGP", maximumFractionDigits: 2 }).format(value);
 const fail = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 
+function parseCairoLocalDateTime(dateValue: string, timeValue: string): Date | null {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const [hour, minute] = timeValue.split(":").map(Number);
+  if (![year, month, day, hour, minute].every(Number.isInteger)) return null;
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+
+  const target = Date.UTC(year, month - 1, day, hour, minute);
+  const normalized = new Date(target);
+  if (
+    normalized.getUTCFullYear() !== year ||
+    normalized.getUTCMonth() !== month - 1 ||
+    normalized.getUTCDate() !== day
+  ) return null;
+
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Cairo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  });
+
+  let candidate = new Date(target - 2 * 60 * 60 * 1000);
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const parts = formatter.formatToParts(candidate);
+    const part = (type: string) => parts.find(item => item.type === type)?.value ?? "";
+    const actual = Date.UTC(
+      Number(part("year")),
+      Number(part("month")) - 1,
+      Number(part("day")),
+      Number(part("hour")),
+      Number(part("minute"))
+    );
+    const delta = target - actual;
+    if (delta === 0) return candidate;
+    candidate = new Date(candidate.getTime() + delta);
+  }
+  return null;
+}
+
 async function getContext(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, userId: string): Promise<OrgContext | null> {
   const { data, error } = await supabase.from("memberships")
     .select("organization_id,role,organizations(name,industry,subscription_status,features_enabled,trial_ends_at,subscription_ends_at,plan_code)")
     .eq("user_id", userId).order("created_at", { ascending: true }).limit(1).maybeSingle();
   if (error || !data) return null;
   const org = Array.isArray(data.organizations) ? data.organizations[0] : data.organizations;
-  if (!org || !org.features_enabled || !["active", "trial"].includes(org.subscription_status) || new Date(org.subscription_ends_at || org.trial_ends_at) < new Date()) return null;
+  const accessEndsAt = org?.subscription_ends_at ?? org?.trial_ends_at;
+  const accessEndsAtMs = accessEndsAt ? Date.parse(accessEndsAt) : Number.NaN;
+  if (
+    !org ||
+    !org.features_enabled ||
+    !["active", "trial"].includes(org.subscription_status) ||
+    !Number.isFinite(accessEndsAtMs) ||
+    accessEndsAtMs <= Date.now()
+  ) return null;
   return { id: data.organization_id, name: org.name, industry: org.industry, role: data.role, planCode: org.plan_code || "free" };
 }
 
@@ -96,8 +146,8 @@ async function executeAgent(
     const dateMatch = message.match(/(20\d{2}-\d{2}-\d{2})[ T](\d{1,2}:\d{2})/);
     const titleMatch = message.match(/(?:احجز|سجل موعد|أضف موعد|اضف موعد|حدد موعد)\s*(?:لـ|ل|مع)?\s*([^،,]+?)(?=\s+(?:يوم|بتاريخ|في)\s+20\d{2}-|$)/i);
     if (dateMatch && titleMatch) {
-      const startsAt = new Date(`${dateMatch[1]}T${dateMatch[2]}:00+02:00`);
-      if (!Number.isFinite(startsAt.getTime()) || startsAt.getTime() < Date.now()) throw new Error("موعد الحجز يجب أن يكون تاريخًا مستقبليًا صحيحًا.");
+      const startsAt = parseCairoLocalDateTime(dateMatch[1], dateMatch[2]);
+      if (!startsAt || startsAt.getTime() < Date.now()) throw new Error("موعد الحجز يجب أن يكون تاريخًا مستقبليًا صحيحًا بتوقيت القاهرة.");
       const title = titleMatch[1].trim().slice(0, 180);
       const { data, error } = await supabase.from("bookings").insert({ organization_id: org.id, created_by: userId, title, starts_at: startsAt.toISOString(), status: "booked" }).select("id,title,starts_at,status").single();
       if (error) throw new Error("تعذر تسجيل الموعد.");
