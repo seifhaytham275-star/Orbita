@@ -120,6 +120,40 @@ function Status({ value }: { value: string }) {
   return <span className={`status-tag ${tone}`}>{statusLabel(value)}</span>;
 }
 
+
+function SubscriptionControls({
+  organizationId,
+  plans,
+  busy,
+  onActivate,
+}: {
+  organizationId: string;
+  plans: Plan[];
+  busy: boolean;
+  onActivate: (organizationId: string, planCode: string, months: number) => void;
+}) {
+  const [planCode, setPlanCode] = useState(plans.find((plan) => plan.active)?.code ?? "");
+  const [months, setMonths] = useState(1);
+  return (
+    <div className="subscription-controls">
+      <select aria-label="الباقة" value={planCode} onChange={(event) => setPlanCode(event.target.value)}>
+        {plans.filter((plan) => plan.active).map((plan) => (
+          <option key={plan.code} value={plan.code}>{plan.name}</option>
+        ))}
+      </select>
+      <select aria-label="مدة الاشتراك" value={months} onChange={(event) => setMonths(Number(event.target.value))}>
+        <option value={1}>شهر واحد</option>
+        <option value={3}>3 أشهر</option>
+        <option value={6}>6 أشهر</option>
+        <option value={12}>12 شهرًا</option>
+      </select>
+      <button type="button" className="primary-button" disabled={busy || !planCode} onClick={() => onActivate(organizationId, planCode, months)}>
+        {busy ? "جارٍ التفعيل…" : "تفعيل / تمديد"}
+      </button>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const [username, setUsername] = useState("Seif");
   const [password, setPassword] = useState("");
@@ -130,7 +164,7 @@ export default function AdminPage() {
   const [activeSection, setActiveSection] = useState<SectionId>("overview");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [busyPayment, setBusyPayment] = useState<string | null>(null);
+  const [busyPayment, setBusyPayment] = useState<string | null>(null);\n  const [busySubscription, setBusySubscription] = useState<string | null>(null);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -222,6 +256,36 @@ export default function AdminPage() {
       setError(cause instanceof Error ? cause.message : "تعذر تحديث طلب الدفع.");
     } finally {
       setBusyPayment(null);
+    }
+  }
+
+
+  async function activateSubscription(organizationId: string, planCode: string, months: number) {
+    const organization = dashboard?.organizations.find((item) => item.id === organizationId);
+    if (!organization) return;
+    const plan = dashboard?.plans.find((item) => item.code === planCode);
+    const confirmed = window.confirm(
+      `تأكيد تفعيل باقة ${plan?.name ?? planCode} لمدة ${months} شهرًا للعميل "${organization.name}"؟ هذه عملية تفعيل إدارية ولا تثبت استلام دفعة.`,
+    );
+    if (!confirmed) return;
+
+    setBusySubscription(organizationId);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/admin/subscriptions/activate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId, planCode, months }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "تعذر تفعيل الاشتراك.");
+      setNotice("تم تفعيل / تمديد الاشتراك بنجاح، وتم تسجيل العملية في سجل الإدارة.");
+      await loadDashboard();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "تعذر تفعيل الاشتراك.");
+    } finally {
+      setBusySubscription(null);
     }
   }
 
@@ -332,9 +396,9 @@ export default function AdminPage() {
         ) : null}
 
         {dashboard && activeSection === "subscriptions" ? (
-          <section className="panel table-panel"><div className="panel-heading"><div><h2>اشتراكات المؤسسات</h2><p>حالة الخطة وتاريخ انتهاء الاشتراك لكل مؤسسة.</p></div><span className="count-pill">{dashboard.stats.organizations} مؤسسة</span></div>
-            <div className="table-wrap"><table><thead><tr><th>المؤسسة</th><th>مالك الحساب</th><th>الباقة</th><th>الحالة</th><th>تاريخ الانتهاء</th></tr></thead><tbody>
-              {dashboard.organizations.map((organization) => <tr key={organization.id}><td><strong>{organization.name}</strong><small>{organization.industry || "—"}</small></td><td>{organization.ownerName || organization.ownerEmail || "—"}</td><td>{organization.plan_code.toUpperCase()}</td><td><Status value={organization.subscription_status} /></td><td>{dateTime(organization.subscription_ends_at || organization.trial_ends_at)}</td></tr>)}
+          <section className="panel table-panel"><div className="panel-heading"><div><h2>إدارة اشتراكات المؤسسات</h2><p>فعّل أو مدّد اشتراك العميل واختر الباقة والمدة. التفعيل اليدوي لا يعني أن الدفع تم استلامه.</p></div><span className="count-pill">{dashboard.stats.organizations} مؤسسة</span></div>
+            <div className="table-wrap"><table><thead><tr><th>المؤسسة</th><th>مالك الحساب</th><th>الباقة</th><th>الحالة</th><th>تاريخ الانتهاء</th><th>إدارة الاشتراك</th></tr></thead><tbody>
+              {dashboard.organizations.map((organization) => <tr key={organization.id}><td><strong>{organization.name}</strong><small>{organization.industry || "—"}</small></td><td>{organization.ownerName || organization.ownerEmail || "—"}</td><td>{organization.plan_code.toUpperCase()}</td><td><Status value={organization.subscription_status} /></td><td>{dateTime(organization.subscription_ends_at || organization.trial_ends_at)}</td><td><SubscriptionControls organizationId={organization.id} plans={dashboard.plans} busy={busySubscription === organization.id} onActivate={activateSubscription} /></td></tr>)}
             </tbody></table></div>
             {!dashboard.organizations.length ? <p className="empty-copy">لا توجد مؤسسات.</p> : null}
           </section>
