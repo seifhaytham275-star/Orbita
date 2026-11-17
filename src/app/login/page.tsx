@@ -57,13 +57,14 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 
   return <main className="auth-shell"><section className="auth-card">
     <Link href="/" className="auth-brand">ORBITA</Link><p className="eyebrow">WELCOME BACK</p>
-    <h1>تسجيل الدخول</h1><p className="auth-muted">استخدم اسم مستخدم شركتك أو بريدك الإلكتروني.</p>
+    <h1>تسجيل الدخول</h1><p className="auth-muted">استخدم اسم المستخدم الخاص بشركتك لتسجيل الدخول.</p>
     {errorMessage && <p className="notice" role="alert">{errorMessage}</p>}
     <form action={signIn} className="auth-form">
       <label>اسم المستخدم أو البريد الإلكتروني<input name="identifier" autoComplete="username" required /></label>
       <label>كلمة المرور<input name="password" type="password" autoComplete="current-password" required /></label>
       <button type="submit">دخول إلى Orbita</button>
     </form>
+    <p className="auth-muted"><Link href="/forgot-password">Forgot Password?</Link></p>
     <p className="auth-muted">ليس لديك حساب؟ <Link href="/signup">إنشاء حساب</Link></p>
     <p className="auth-muted"><Link href="/admin/login">دخول إدارة المنصة</Link></p>
   </section></main>;
