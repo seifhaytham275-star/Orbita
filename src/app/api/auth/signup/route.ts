@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
@@ -29,6 +30,14 @@ export async function POST(request: Request) {
   const admin = createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
+  const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const clientIp = forwardedFor || request.headers.get("x-real-ip") || "unknown";
+  const ipHash = createHash("sha256").update(clientIp).digest("hex");
+  const { data: allowed, error: limitError } = await admin.rpc("orbita_check_signup_rate_limit", { p_ip_hash: ipHash });
+  if (limitError || allowed !== true) {
+    return NextResponse.json({ error: "وصلت إلى الحد المؤقت لمحاولات التسجيل. حاول مرة أخرى بعد ساعة." }, { status: 429 });
+  }
+
   const authEmail = `orbita-${crypto.randomUUID()}@users.orbita.invalid`;
   const { data, error } = await admin.auth.admin.createUser({
     email: authEmail,
@@ -46,5 +55,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "تعذر إنشاء الحساب الآن. راجع البيانات وحاول مرة أخرى." }, { status: 400 });
   }
 
-  return NextResponse.json({ authEmail, userId: data.user.id }, { status: 201 });
+  return NextResponse.json({ authEmail }, { status: 201 });
 }
