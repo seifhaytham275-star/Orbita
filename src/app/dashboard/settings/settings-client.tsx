@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useOrbitaTheme, type OrbitaTheme } from "@/components/theme-provider";
 
@@ -23,6 +23,10 @@ export default function SettingsClient({
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [notifications, setNotifications] = useState(true);
+
+  useEffect(() => {
+    setNotifications(window.localStorage.getItem("orbita-notifications-v1") !== "off");
+  }, []);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -87,7 +91,7 @@ export default function SettingsClient({
 
   function updateNotifications(value: boolean) {
     setNotifications(value);
-    window.localStorage.setItem("orbita-notifications", value ? "on" : "off");
+    window.localStorage.setItem("orbita-notifications-v1", value ? "on" : "off");
     feedback(value ? "تم تفعيل تفضيل الإشعارات." : "تم إيقاف تفضيل الإشعارات.");
   }
 
