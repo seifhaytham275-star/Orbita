@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { getPublicSiteUrl } from "@/lib/site-url";
 
 function makePassword() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
@@ -16,6 +16,8 @@ export default function SignupPage() {
   const [busy,setBusy] = useState(false);
   const [password,setPassword] = useState("");
   const [showPassword,setShowPassword] = useState(false);
+  const router = useRouter();
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setMessage("");
     const form = new FormData(event.currentTarget);
@@ -24,19 +26,28 @@ export default function SignupPage() {
     const email = String(form.get("email") || "").trim();
     try {
       const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: { display_name: companyName, company_name: companyName, industry },
-          emailRedirectTo: `${getPublicSiteUrl()}/auth/callback?next=%2Fdashboard`
+          data: { display_name: companyName, company_name: companyName, industry }
         }
       });
       if (error) throw error;
-      setMessage("تم إنشاء حسابك المجاني وبدء تجهيز مساحة شركتك تلقائيًا. لا تحتاج إلى موافقة إدارية أو طلب تفعيل، ولا توجد بطاقة بنكية أو مدفوعات أو تجديد تلقائي. قد يُطلب منك تأكيد بريدك الإلكتروني لتسجيل الدخول.");
-    } catch (error) { const reason = error instanceof Error ? error.message : ""; setMessage(reason.toLowerCase().includes("email rate limit exceeded") ? "تم تجاوز الحد المؤقت لإرسال رسائل التحقق. لا تعِد التسجيل الآن. إذا كنت سجلت بهذا البريد من قبل، افحص صندوق الوارد والرسائل غير المرغوب فيها وابحث عن رسالة تأكيد Supabase؛ حسابك قد يكون اتعمل بالفعل. جرّب مرة أخرى بعد انتهاء فترة التحديد." : reason || "تعذر إنشاء الحساب."); }
-    finally { setBusy(false); }
+      if (data.session) {
+        router.replace("/dashboard");
+        router.refresh();
+        return;
+      }
+      setMessage("تم إنشاء الحساب، لكن تسجيل الدخول التلقائي لم يكتمل. إعداد تأكيد البريد الإلكتروني في خدمة المصادقة ما زال يتطلب مراجعة. لن نطلب منك فتح بريدك أو الضغط على رابط تأكيد.");
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "";
+      setMessage(reason.toLowerCase().includes("email rate limit exceeded")
+        ? "تعذر إكمال التسجيل بسبب حدّ مؤقت في خدمة المصادقة. انتظر قليلًا ثم حاول مرة أخرى."
+        : reason || "تعذر إنشاء الحساب.");
+    } finally { setBusy(false); }
   }
+
   return <main className="auth-shell"><section className="auth-card">
     <Link href="/" className="auth-brand">ORBITA</Link><p className="eyebrow">START YOUR WORKSPACE</p>
     <h1>إنشاء حساب شركتك</h1>
@@ -87,7 +98,7 @@ export default function SignupPage() {
       <button type="button" className="secondary-action" onClick={()=>setShowPassword(value=>!value)}>{showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}</button>
       <button disabled={busy || password.length < 12}>{busy ? "جارٍ إنشاء الحساب..." : "إنشاء الحساب مجانًا"}</button>
     </form>
-    {message && <p className="notice">{message}</p>}
+    {message && <p className="notice" role="status">{message}</p>}
     <p className="auth-muted">لديك حساب؟ <Link href="/login">تسجيل الدخول</Link></p>
   </section></main>;
 }
