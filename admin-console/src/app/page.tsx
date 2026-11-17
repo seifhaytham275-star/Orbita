@@ -164,7 +164,8 @@ export default function AdminPage() {
   const [activeSection, setActiveSection] = useState<SectionId>("overview");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [busyPayment, setBusyPayment] = useState<string | null>(null);\n  const [busySubscription, setBusySubscription] = useState<string | null>(null);
+  const [busyPayment, setBusyPayment] = useState<string | null>(null);
+  const [busySubscription, setBusySubscription] = useState<string | null>(null);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
