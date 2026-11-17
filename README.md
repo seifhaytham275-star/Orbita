@@ -44,14 +44,10 @@ Astro currently performs deterministic intent routing and supported database ope
 
 4. Apply the SQL migrations in order in Supabase SQL Editor:
 
-   - `supabase/migrations/0001_orbita_core.sql`
-   - `supabase/migrations/0002_company_accounts_and_trial.sql`
-   - `supabase/migrations/0003_astro_agent_tasks.sql`
-   - `supabase/migrations/0004_business_operations_and_agent_security.sql`
-   - `supabase/migrations/0005_atomic_stock_adjustment.sql`
-   - `supabase/migrations/0006_atomic_product_creation.sql`
+   - `supabase/migrations/0001_orbita_core.sql` through `supabase/migrations/0013_fix_subscription_protection_after_private_schema_move.sql`, in numeric order.
+   - `supabase/migrations/0015_plans_free_pro_max_business.sql` through `supabase/migrations/0020_admin_subscription_activation.sql`, in numeric order.
 
-   Migration 0004 is idempotent for existing business tables. Migration 0005 adds the atomic inventory adjustment function.
+   Migration 0014 is intentionally absent from this repository. Apply every migration file that exists exactly once, in numeric order, and verify the Supabase migration history before applying anything manually. Do not re-run non-idempotent SQL against a database that already has the migration recorded.
 
 5. In Supabase → Authentication → URL Configuration, set the production Site URL to your deployed HTTPS domain and add the local and production callback URLs to the Redirect URLs allowlist. Do not leave `http://localhost:3000` as the production Site URL.
 
@@ -73,11 +69,12 @@ Astro currently performs deterministic intent routing and supported database ope
 ## Independent platform administrator
 
 - Admin login is separate from customer accounts and does not use Gmail.
-- Open `/admin/setup` once, enter the one-time bootstrap code supplied privately by the project owner, then choose your own username and password (minimum 12 characters).
-- The setup code is single-use. Do not put it in this repository.
-- After setup, use `/admin/login`.
-- The admin session requires `ORBITA_ADMIN_SESSION_SECRET`.
-- The admin dashboard requires `SUPABASE_SERVICE_ROLE_KEY` to read all companies. Keep it server-side.
+- The independent admin console is hosted separately at `https://orbita-admin-console.vercel.app`.
+- The current repository does not contain a completed first-admin setup page. The OTP request endpoint alone does not create an admin account; do not use or advertise `/admin/setup` until a complete, reviewed setup flow has been deployed.
+- Admin credentials are stored as a single database credential and verified server-side. Do not insert plaintext passwords, expose the service-role key, or share bootstrap values.
+- The admin session requires `ORBITA_ADMIN_SESSION_SECRET` (at least 32 characters).
+- The admin dashboard requires `SUPABASE_SERVICE_ROLE_KEY` to read platform-wide data. Keep it server-side.
+- After a credential has been provisioned through an owner-controlled secure process, sign in at the admin console root URL.
 
 ## Astro and agents
 
