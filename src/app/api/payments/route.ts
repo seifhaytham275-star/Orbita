@@ -42,6 +42,9 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "راجع الباقة ومرجع التحويل.", details: parsed.error.flatten() }, { status: 400 });
 
   const { organizationId, planCode, billingPeriodMonths, customerReference } = parsed.data;
+  if (!process.env.INSTAPAY_RECEIVER_IDENTIFIER?.trim()) {
+    return NextResponse.json({ error: "الدفع عبر InstaPay غير مهيأ حاليًا. تواصل مع إدارة المنصة." }, { status: 503 });
+  }
   const [{ data: membership }, { data: plan, error: planError }] = await Promise.all([
     supabase.from("memberships").select("organization_id").eq("organization_id", organizationId).eq("user_id", user.id).maybeSingle(),
     supabase.from("subscription_plans").select("code,monthly_price,currency").eq("code", planCode).eq("active", true).maybeSingle()
