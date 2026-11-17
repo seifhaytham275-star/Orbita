@@ -10,11 +10,13 @@ export default async function SettingsPage() {
 
   const [{ data: profile }, { data: memberships }] = await Promise.all([
     supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle(),
-    supabase.from("memberships").select("organizations(username)").eq("user_id", user.id).limit(1)
+    supabase.from("memberships").select("organization_id").eq("user_id", user.id).limit(1)
   ]);
 
-  const organization = memberships?.[0]?.organizations;
-  const username = Array.isArray(organization) ? organization[0]?.username : organization?.username;
+  const organizationId = memberships?.[0]?.organization_id;
+  const { data: organization } = organizationId
+    ? await supabase.from("organizations").select("username").eq("id", organizationId).maybeSingle()
+    : { data: null };
   const isSyntheticEmail = Boolean(user.email?.endsWith("@users.orbita.invalid"));
 
   return <main className="dashboard-shell settings-page" dir="rtl">
@@ -31,7 +33,7 @@ export default async function SettingsPage() {
     </section>
     <SettingsClient
       initialName={profile?.display_name || ""}
-      username={username || ""}
+      username={organization?.username || ""}
       initialRecoveryEmail={isSyntheticEmail ? "" : user.email || ""}
     />
   </main>;
