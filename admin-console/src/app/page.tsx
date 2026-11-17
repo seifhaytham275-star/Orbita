@@ -155,7 +155,8 @@ function SubscriptionControls({
 }
 
 export default function AdminPage() {
-  const [username, setUsername] = useState("Seif");
+  const [username, setUsername] = useState("");
+  const [sessionUsername, setSessionUsername] = useState("");
   const [password, setPassword] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -189,6 +190,7 @@ export default function AdminPage() {
       .then(async (data) => {
         if (!mounted) return;
         if (data.authenticated) {
+          setSessionUsername(typeof data.username === "string" ? data.username : "admin");
           setAuthenticated(true);
           await loadDashboard();
         }
@@ -215,6 +217,7 @@ export default function AdminPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "تعذر تسجيل الدخول.");
+      setSessionUsername(typeof data.username === "string" ? data.username : username.trim().toLowerCase());
       setAuthenticated(true);
       setPassword("");
       await loadDashboard();
@@ -306,7 +309,7 @@ export default function AdminPage() {
           <p className="login-description">استخدم حساب الإدارة المسجل للوصول إلى بيانات العملاء والاشتراكات والمدفوعات.</p>
           <form className="login-form" onSubmit={handleLogin}>
             <label htmlFor="admin-username">اسم المستخدم</label>
-            <input id="admin-username" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required />
+            <input id="admin-username" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" placeholder="اسم مستخدم الإدارة" required />
             <label htmlFor="admin-password">كلمة المرور</label>
             <input id="admin-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required />
             {error ? <p className="form-error" role="alert">{error}</p> : null}
@@ -348,7 +351,7 @@ export default function AdminPage() {
             <p className="page-description">لوحة الإدارة متصلة ببيانات ORBITA الفعلية.</p>
           </div>
           <div className="top-actions">
-            <span className="secure-pill">SECURE SESSION · SEIF</span>
+            <span className="secure-pill">SECURE SESSION · {sessionUsername.toUpperCase() || "ADMIN"}</span>
             <button type="button" className="ghost-button" onClick={() => loadDashboard()} disabled={loading}>{loading ? "تحديث…" : "تحديث البيانات"}</button>
             <button type="button" className="ghost-button" onClick={handleLogout}>تسجيل الخروج</button>
           </div>
