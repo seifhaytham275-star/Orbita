@@ -53,13 +53,20 @@ export default function SettingsClient({
     event.preventDefault(); setBusy(true); feedback();
     try {
       const db = createSupabaseBrowserClient();
-      const { data, error: updateError } = await db.auth.updateUser({ email: recoveryEmail.trim().toLowerCase() });
-      if (updateError) throw updateError;
-      if (data.user?.email?.toLowerCase() === recoveryEmail.trim().toLowerCase()) {
-        feedback("تم تحديث البريد في الحساب. تأكد من أنه بريدك الشخصي ويمكنك الوصول إليه.");
-      } else {
-        feedback("تم إرسال طلب تأكيد إلى البريد الجديد. افتح الرسالة واضغط رابط التأكيد قبل استخدامه لاستعادة كلمة المرور.");
+      const normalizedEmail = recoveryEmail.trim().toLowerCase();
+      const { data: currentData, error: currentError } = await db.auth.getUser();
+      if (currentError || !currentData.user?.email) throw new Error("تعذر التحقق من الحساب. سجّل الدخول مرة أخرى.");
+      if (currentData.user.email.toLowerCase() === normalizedEmail) {
+        feedback("هذا البريد مرتبط بالفعل بحسابك.");
+        return;
       }
+      const { data, error: updateError } = await db.auth.updateUser({ email: normalizedEmail });
+      if (updateError) throw updateError;
+      if (data.user?.email?.toLowerCase() === normalizedEmail) {
+        await db.auth.updateUser({ email: currentData.user.email });
+        throw new Error("إعداد تأكيد تغيير البريد غير مفعّل حاليًا. تم التراجع عن التغيير لحماية حسابك. يجب تفعيل Confirm email في Supabase أولًا.");
+      }
+      feedback("تم إرسال طلب تأكيد إلى البريد الجديد إذا كانت إعدادات البريد مفعّلة. افتح الرسالة واضغط رابط التأكيد قبل استخدامه لاستعادة كلمة المرور.");
     } catch (e) {
       feedback("", e instanceof Error ? e.message : "تعذر تحديث البريد. تأكد من صحة العنوان وحاول مرة أخرى.");
     } finally { setBusy(false); }
