@@ -5,11 +5,14 @@ export const dynamic = "force-dynamic";
 
 async function getManagerContext(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, userId: string) {
   const { data, error } = await supabase.from("memberships")
-    .select("organization_id,role,organizations(name,features_enabled,subscription_status,trial_ends_at)")
+    .select("organization_id,role,organizations(name,features_enabled,subscription_status,trial_ends_at,subscription_ends_at)")
     .eq("user_id", userId).order("created_at", { ascending: true }).limit(1).maybeSingle();
   if (error || !data || !["owner", "manager"].includes(data.role)) return null;
   const org = Array.isArray(data.organizations) ? data.organizations[0] : data.organizations;
-  if (!org || !org.features_enabled || !["active", "trial"].includes(org.subscription_status) || new Date(org.trial_ends_at) < new Date()) return null;
+  if (!org || !org.features_enabled || !["active", "trial"].includes(org.subscription_status)) return null;
+  const accessEndsAt = org.subscription_ends_at ?? org.trial_ends_at;
+  const accessEndsAtMs = accessEndsAt ? Date.parse(accessEndsAt) : Number.NaN;
+  if (!Number.isFinite(accessEndsAtMs) || accessEndsAtMs <= Date.now()) return null;
   return { organizationId: data.organization_id, userId };
 }
 
