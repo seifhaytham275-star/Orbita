@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+const INSTAPAY_RECEIVER_IDENTIFIER = "01117770325";
+
 const paymentSchema = z.object({
   organizationId: z.string().uuid(),
   planCode: z.enum(["pro", "max", "business"]),
-  billingPeriodMonths: z.number().int().min(1).max(12).default(1),
-  customerReference: z.string().trim().min(3).max(160)
+  billingPeriodMonths: z.number().int().min(1).max(12).default(1)
 });
 
 export const dynamic = "force-dynamic";
@@ -18,13 +19,12 @@ export async function GET() {
   const [{ data: plans, error }, { data: memberships }, { data: payments }] = await Promise.all([
     supabase.from("subscription_plans").select("code,name,monthly_price,currency,limits,features").eq("active", true).order("monthly_price"),
     supabase.from("memberships").select("organization_id,role,organizations(name,plan_code,subscription_status,subscription_ends_at,trial_ends_at)").eq("user_id", user.id),
-    supabase.from("payment_submissions").select("id,amount,currency,status,plan_code,created_at,customer_reference").eq("user_id", user.id).order("created_at",{ascending:false}).limit(30)
+    supabase.from("payment_submissions").select("id,amount,currency,status,plan_code,created_at").eq("user_id", user.id).order("created_at",{ascending:false}).limit(30)
   ]);
   if (error) return NextResponse.json({ error: "تعذر تحميل الباقات." }, { status: 503 });
-  const receiver = process.env.INSTAPAY_RECEIVER_IDENTIFIER?.trim() || null;
   return NextResponse.json({
     methods: ["instapay"],
-    instapay: { receiverIdentifier: receiver, enabled: Boolean(receiver), confirmation: "manual_owner_review" },
+    instapay: { receiverIdentifier: INSTAPAY_RECEIVER_IDENTIFIER, enabled: true, confirmation: "manual_owner_review" },
     plans: plans ?? [],
     organizations: memberships ?? [],
     payments: payments ?? []
@@ -39,12 +39,9 @@ export async function POST(request: Request) {
   let raw: unknown;
   try { raw = await request.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   const parsed = paymentSchema.safeParse(raw);
-  if (!parsed.success) return NextResponse.json({ error: "راجع الباقة ومرجع التحويل.", details: parsed.error.flatten() }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "راجع الباقة ومدة الاشتراك.", details: parsed.error.flatten() }, { status: 400 });
 
-  const { organizationId, planCode, billingPeriodMonths, customerReference } = parsed.data;
-  if (!process.env.INSTAPAY_RECEIVER_IDENTIFIER?.trim()) {
-    return NextResponse.json({ error: "الدفع عبر InstaPay غير مهيأ حاليًا. تواصل مع إدارة المنصة." }, { status: 503 });
-  }
+  const { organizationId, planCode, billingPeriodMonths } = parsed.data;
   const [{ data: membership }, { data: plan, error: planError }] = await Promise.all([
     supabase.from("memberships").select("organization_id").eq("organization_id", organizationId).eq("user_id", user.id).maybeSingle(),
     supabase.from("subscription_plans").select("code,monthly_price,currency").eq("code", planCode).eq("active", true).maybeSingle()
@@ -63,7 +60,7 @@ export async function POST(request: Request) {
     currency: plan.currency || "EGP",
     plan_code: plan.code,
     billing_period_months: billingPeriodMonths,
-    customer_reference: customerReference,
+    customer_reference: null,
     status: "pending_review"
   }).select("id,status,amount,currency,plan_code,billing_period_months,created_at").single();
 
@@ -75,6 +72,6 @@ export async function POST(request: Request) {
   });
   return NextResponse.json({
     payment: data,
-    message: "تم تسجيل طلب التحويل. الاشتراك لن يتفعل إلا بعد مراجعة التحويل واعتماده من إدارة Orbita."
+    message: "تم تسجيل طلب الدفع. ابعت Screenshot التحويل على WhatsApp، والاشتراك مش هيتفعل إلا بعد مراجعة التحويل واعتماده من إدارة Orbita."
   }, { status: 201 });
 }
