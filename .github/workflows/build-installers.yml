@@ -1,4 +1,4 @@
-# Build the same hosted ORBITA release for Android and Windows.
+# Build the hosted ORBITA production release for Android APK and Windows installer.
 name: Build Orbita installers
 on:
   workflow_dispatch:
