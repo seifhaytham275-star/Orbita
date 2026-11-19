@@ -1,0 +1,65 @@
+name: ORBITA Windows Clean Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/build-windows.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "desktop/**"
+
+permissions:
+  contents: read
+
+env:
+  ORBITA_WEB_URL: ${{ vars.ORBITA_WEB_URL || 'https://orbita-tau-seven.vercel.app' }}
+
+jobs:
+  windows-installer:
+    name: Build clean Windows installer
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate and embed deployed ORBITA URL
+        shell: pwsh
+        run: |
+          $url = "$env:ORBITA_WEB_URL"
+          if ($url -notmatch '^https://') {
+            throw "ORBITA_WEB_URL must be a valid deployed HTTPS website URL."
+          }
+          @{ url = $url } | ConvertTo-Json | Set-Content desktop/app-config.json -Encoding utf8
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build Windows NSIS installer
+        run: npm run desktop:dist -- --publish never
+
+      - name: Verify installer output
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path release -Filter *.exe -File
+          if (-not $installer) {
+            throw "Build completed without producing a Windows .exe installer."
+          }
+          $installer | ForEach-Object {
+            Write-Host "Built: $($_.Name) ($($_.Length) bytes)"
+          }
+
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Orbita-Windows-Clean-Installer
+          path: release/*.exe
+          if-no-files-found: error
+          retention-days: 30
