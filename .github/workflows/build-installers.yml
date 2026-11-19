@@ -1,3 +1,4 @@
+# Build the same hosted ORBITA release for Android and Windows.
 name: Build Orbita installers
 on:
   workflow_dispatch:
@@ -74,7 +75,7 @@ jobs:
       - name: Prepare Capacitor web assets
         run: |
           mkdir -p public
-          printf '%s\\n' '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>Orbita is loading...</body></html>' > public/index.html
+          printf '%s\n' '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>Orbita is loading...</body></html>' > public/index.html
           mkdir -p android/app/src/main/assets/public
       - name: Sync hosted Orbita website
         run: npx cap sync android
