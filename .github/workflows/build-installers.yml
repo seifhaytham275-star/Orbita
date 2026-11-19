@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 env:
-  ORBITA_WEB_URL: ${{ vars.ORBITA_WEB_URL || 'https://orbita-seifhaytham275-star.vercel.app' }}
+  ORBITA_WEB_URL: ${{ vars.ORBITA_WEB_URL || 'https://orbita-tau-seven.vercel.app' }}
 
 jobs:
   windows-installer:
@@ -74,7 +74,7 @@ jobs:
       - name: Prepare Capacitor web assets
         run: |
           mkdir -p public
-          printf '%s\n' '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>Orbita is loading...</body></html>' > public/index.html
+          printf '%s\\n' '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>Orbita is loading...</body></html>' > public/index.html
           mkdir -p android/app/src/main/assets/public
       - name: Sync hosted Orbita website
         run: npx cap sync android
