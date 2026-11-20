@@ -1,3 +1,4 @@
+import { generateGeminiText, GEMINI_MODEL } from "@/lib/ai/gemini";
 export type AIMessage = { role: "system" | "user" | "assistant"; content: string };
 export type AIResult = { text: string; provider: string };
 export type AstroAgent = "Ledger" | "Echo" | "Pulse" | "Stock" | "Reach" | "Insight";
@@ -43,15 +44,8 @@ export async function classifyAstroAgent(message: string, geminiApiKey?: string 
   let text = "";
   let provider = "";
   if (geminiApiKey) {
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
-      method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": geminiApiKey },
-      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: instructions + "\n\nUser request: " + message.slice(0, 1200) }] }], generationConfig: { temperature: 0, maxOutputTokens: 80, responseMimeType: "application/json" } }),
-      signal: AbortSignal.timeout(12000), cache: "no-store"
-    });
-    if (!response.ok) throw new Error("Gemini routing request failed.");
-    const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-    text = payload.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("").trim() || "";
-    provider = "gemini-2.5-flash";
+    text = await generateGeminiText(geminiApiKey, instructions + "\n\nUser request: " + message.slice(0, 1200), 80);
+    provider = GEMINI_MODEL;
   } else {
     const result = await generateWithAI([{ role: "system", content: instructions }, { role: "user", content: message.slice(0, 1200) }]);
     if (!result) return null;
