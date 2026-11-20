@@ -8,7 +8,7 @@ type Agent = "Ledger" | "Echo" | "Pulse" | "Stock" | "Reach" | "Insight";
 type OrgContext = { id: string; name: string; industry: string; role: string; planCode: string };
 
 const routing: Array<{ agent: Agent; keywords: string[] }> = [
-  { agent: "Stock", keywords: ["مخزون","صنف","منتج","شراء","كمية","stock","inventory","product"] },
+  { agent: "Stock", keywords: ["مخزون","صنف","منتج","شراء","كمية","رصيد","سكر","أرز","رز","دقيق","زيت","جرام","غرام","كيلو","stock","inventory","product"] },
   { agent: "Pulse", keywords: ["حجز","موعد","تذكير","booking","appointment","reminder"] },
   { agent: "Ledger", keywords: ["فاتورة","حساب","مبيعات","مصروف","invoice","account","sales"] },
   { agent: "Echo", keywords: ["عميل","رسالة","طلب","واتساب","خدمة العملاء","customer","order","whatsapp"] },
@@ -86,25 +86,69 @@ async function executeAgent(
   }
 
   if (agent === "Stock") {
-    const addMatch = message.match(/(?:أضف|اضف|سجل|ضيف).*?(?:صنف|منتج)?\s*([^،,]+?)\s+(?:بكمية|كمية|عدد)\s*(\d+(?:\.\d+)?)/i);
-    if (addMatch && /(أضف|اضف|سجل|ضيف)/i.test(message)) {
-      const name = addMatch[1].trim().replace(/^(?:صنف|منتج)\s*/i, "").slice(0, 180);
-      const quantity = Number(addMatch[2]);
-      if (!name || !Number.isFinite(quantity) || quantity < 0) throw new Error("اكتب اسم الصنف والكمية بشكل صحيح، مثال: أضف صنف ورق بكمية 20.");
-      const { data: productId, error } = await supabase.rpc("orbita_create_product", {
-        p_organization_id: org.id, p_name: name, p_quantity: quantity, p_unit: "قطعة",
+    const normalizedMessage = message.replace(/[٠-٩]/g, digit => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)));
+    const stockInput = normalizedMessage.match(/(?:عندي|لدينا|متوفر(?:\\s+عندنا)?|سجل(?:\\s+في\\s+المخزون)?|أضف|اضف|ضيف)(?:\\s+رصيد)?\\s*(\\d+(?:[.,]\\d+)?)\\s*(جرام|غرام|جم|كيلوجرام|كيلو|كجم|مل|لتر|قطعة|علبة|كرتونة)?\\s+(?:من\\s+)?(.+)/i);
+    const legacyInput = normalizedMessage.match(/(?:أضف|اضف|سجل|ضيف).*?(?:صنف|منتج)?\\s*([^،,]+?)\\s+(?:بكمية|كمية|عدد)\\s*(\\d+(?:[.,]\\d+)?)/i);
+    const input = stockInput
+      ? { quantity: Number(stockInput[1].replace(",", ".")), unit: stockInput[2] || "قطعة", name: stockInput[3], mode: /^(?:عندي|لدينا|متوفر)/i.test(normalizedMessage) ? "set" : "add" }
+      : legacyInput && /(?:أضف|اضف|سجل|ضيف)/i.test(normalizedMessage)
+        ? { quantity: Number(legacyInput[2]), unit: "قطعة", name: legacyInput[1], mode: "add" }
+        : null;
+
+    if (input) {
+      const name = input.name.replace(/\\s+(?:في\\s+المخزون|عندنا)$/i, "").trim().replace(/^(?:صنف|منتج)\\s*/i, "").slice(0, 160);
+      const quantity = input.quantity;
+      const unitAliases: Record<string, string> = { غرام: "جرام", جم: "جرام", كيلو: "كيلوجرام", كجم: "كيلوجرام" };
+      const unit = unitAliases[input.unit] || input.unit;
+      if (!name || !Number.isFinite(quantity) || quantity <= 0) throw new Error("اكتب اسم الصنف وكمية أكبر من صفر، مثال: عندي 500 جرام سكر.");
+      const { data: existing, error: findError } = await supabase.from("products")
+        .select("id,name,quantity,unit").eq("organization_id", org.id).ilike("name", name).limit(1).maybeSingle();
+      if (findError) throw new Error("تعذر التحقق من الصنف الحالي في المخزون.");
+      if (existing) {
+        if (unit !== existing.unit && !(unit === "قطعة" && !stockInput)) {
+          throw new Error(`وحدة الصنف المسجلة هي "${existing.unit}" وليست "${unit}". لم أغيّر المخزون لتجنب خلط الوحدات.`);
+        }
+        const delta = input.mode === "set" ? quantity - Number(existing.quantity) : quantity;
+        if (delta === 0) {
+          return { status: "completed", result: { action: "stock_verified", product: existing }, reply: `رصيد ${existing.name} بالفعل ${existing.quantity} ${existing.unit}، ولم أغيّر أي شيء.` };
+        }
+        const { data: newQuantity, error: adjustError } = await supabase.rpc("orbita_adjust_stock", {
+          p_organization_id: org.id, p_product_id: existing.id, p_delta: delta,
+          p_note: input.mode === "set" ? "تحديث الرصيد من Astro" : "إضافة كمية من Astro"
+        });
+        if (adjustError) throw new Error("تعذر تحديث رصيد الصنف. لم يتم تسجيل حركة جزئية.");
+        return { status: "completed", result: { action: input.mode === "set" ? "stock_set" : "stock_added", product_id: existing.id, name: existing.name, previous_quantity: existing.quantity, quantity: newQuantity, unit: existing.unit }, reply: input.mode === "set" ? `تم تحديث رصيد ${existing.name} إلى ${newQuantity} ${existing.unit}.` : `تمت إضافة ${quantity} ${existing.unit} إلى ${existing.name}. الرصيد الجديد ${newQuantity} ${existing.unit}.` };
+      }
+      const { data: productId, error: createError } = await supabase.rpc("orbita_create_product", {
+        p_organization_id: org.id, p_name: name, p_quantity: quantity, p_unit: unit,
         p_reorder_level: 0, p_unit_cost: 0, p_sale_price: 0
       });
-      if (error || !productId) throw new Error("تعذر إضافة الصنف. لم يتم حفظ رصيد جزئي.");
-      const { data, error: readError } = await supabase.from("products").select("id,name,quantity,unit").eq("id", productId).eq("organization_id", org.id).single();
-      if (readError || !data) throw new Error("تم إنشاء الصنف لكن تعذر تحميل تفاصيله.");
-      return { status: "completed", result: { action: "product_created", product: data }, reply: `تمت إضافة الصنف "${data.name}" برصيد ${data.quantity} ${data.unit}.` };
+      if (createError || !productId) throw new Error("تعذر إضافة الصنف. لم يتم حفظ رصيد جزئي.");
+      const { data: created, error: readError } = await supabase.from("products").select("id,name,quantity,unit")
+        .eq("id", productId).eq("organization_id", org.id).single();
+      if (readError || !created) throw new Error("تم تسجيل الصنف لكن تعذر قراءة تفاصيله.");
+      return { status: "completed", result: { action: "product_created", product: created }, reply: `تم تسجيل ${created.name} في المخزون برصيد ${created.quantity} ${created.unit}.` };
     }
-    const { data, error } = await supabase.from("products").select("name,sku,quantity,unit,reorder_level").eq("organization_id", org.id).order("name").limit(100);
+
+    const { data, error } = await supabase.from("products")
+      .select("id,name,sku,quantity,unit,reorder_level").eq("organization_id", org.id).order("name").limit(300);
     if (error) throw new Error("تعذر قراءة المخزون.");
-    const low = (data ?? []).filter(p => Number(p.quantity) <= Number(p.reorder_level));
-    const summary = (data ?? []).slice(0, 12).map(p => `${p.name}: ${p.quantity} ${p.unit}`).join("؛ ");
-    return { status: "completed", result: { action: "inventory_report", count: data?.length ?? 0, low_stock: low }, reply: `المخزون يحتوي على ${data?.length ?? 0} صنف. أصناف وصلت لحد إعادة الطلب: ${low.length}. ${summary || "لا توجد أصناف مسجلة بعد."}` };
+    const queryMatch = normalizedMessage.match(/(?:كام|كم)\\s+(?:من\\s+)?(.+?)(?:\\s*[؟?])?$/i)
+      || normalizedMessage.match(/(?:رصيد|كمية)\\s+(.+?)(?:\\s*[؟?])?$/i);
+    const queryName = queryMatch?.[1]?.trim().replace(/^(?:عندنا|لدينا)\\s+/, "").replace(/\\s+(?:عندنا|في المخزون)$/, "");
+    const matches = queryName
+      ? (data ?? []).filter(p => p.name.toLocaleLowerCase("ar").includes(queryName.toLocaleLowerCase("ar")))
+      : (data ?? []);
+    if (queryName && matches.length === 0) {
+      return { status: "completed", result: { action: "product_not_found", query: queryName }, reply: `مش لاقي صنف باسم "${queryName}" مسجل في مخزون الشركة. لم أضف أو أغيّر أي بيانات.` };
+    }
+    const low = matches.filter(p => Number(p.quantity) <= Number(p.reorder_level));
+    const summary = matches.slice(0, 30).map(p => `${p.name}: ${p.quantity} ${p.unit}`).join("؛ ");
+    return {
+      status: "completed",
+      result: { action: queryName ? "product_stock_lookup" : "inventory_report", query: queryName || null, count: matches.length, products: matches, low_stock: low },
+      reply: queryName ? summary : `المخزون يحتوي على ${matches.length} صنف. الأصناف عند حد إعادة الطلب أو أقل: ${low.length}. ${summary || "لا توجد أصناف مسجلة بعد."}`
+    };
   }
 
   if (agent === "Ledger") {
