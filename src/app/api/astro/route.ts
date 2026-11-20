@@ -234,15 +234,20 @@ async function executeAgent(
 
   const [customers, products, invoices, bookings] = await Promise.all([
     supabase.from("customers").select("id", { count: "exact", head: true }).eq("organization_id", org.id),
-    supabase.from("products").select("id,name,quantity,reorder_level").eq("organization_id", org.id),
-    supabase.from("invoices").select("amount,status").eq("organization_id", org.id),
-    supabase.from("bookings").select("id", { count: "exact", head: true }).eq("organization_id", org.id).gte("starts_at", new Date().toISOString())
+    supabase.from("products").select("id,name,quantity,unit,reorder_level,unit_cost,sale_price").eq("organization_id", org.id).order("name").limit(500),
+    supabase.from("invoices").select("invoice_number,customer_name,amount,status,created_at").eq("organization_id", org.id).order("created_at", { ascending: false }).limit(500),
+    supabase.from("bookings").select("id", { count: "exact", head: true }).eq("organization_id", org.id).gte("starts_at", new Date().toISOString()).neq("status", "cancelled")
   ]);
   if (customers.error || products.error || invoices.error || bookings.error) throw new Error("تعذر تكوين التقرير من بيانات الشركة.");
-  const outstanding = (invoices.data ?? []).filter(i => i.status !== "paid" && i.status !== "cancelled").reduce((sum, i) => sum + Number(i.amount), 0);
+  const outstandingInvoices = (invoices.data ?? []).filter(i => i.status !== "paid" && i.status !== "cancelled");
+  const paidInvoices = (invoices.data ?? []).filter(i => i.status === "paid");
+  const outstanding = outstandingInvoices.reduce((sum, i) => sum + Number(i.amount), 0);
+  const paid = paidInvoices.reduce((sum, i) => sum + Number(i.amount), 0);
   const lowStock = (products.data ?? []).filter(p => Number(p.quantity) <= Number(p.reorder_level));
-  const report = { customers: customers.count ?? 0, products: products.data?.length ?? 0, low_stock: lowStock.length, invoices: invoices.data?.length ?? 0, outstanding_egp: outstanding, upcoming_bookings: bookings.count ?? 0 };
-  return { status: "completed", result: { action: "business_summary", ...report }, reply: `ملخص ${org.name}: العملاء ${report.customers}، الأصناف ${report.products}، الأصناف منخفضة المخزون ${report.low_stock}، الفواتير ${report.invoices}، المبالغ غير المسددة ${money(outstanding)}، المواعيد القادمة ${report.upcoming_bookings}.` };
+  const stockCostValue = (products.data ?? []).reduce((sum, p) => sum + Number(p.quantity) * Number(p.unit_cost), 0);
+  const stockLines = lowStock.slice(0, 8).map(p => `${p.name} (${p.quantity} ${p.unit})`).join("، ");
+  const report = { customers: customers.count ?? 0, products: products.data?.length ?? 0, low_stock: lowStock.length, low_stock_items: lowStock, invoices: invoices.data?.length ?? 0, paid_invoices: paidInvoices.length, outstanding_invoices: outstandingInvoices.length, paid_egp: paid, outstanding_egp: outstanding, stock_cost_value_egp: stockCostValue, upcoming_bookings: bookings.count ?? 0 };
+  return { status: "completed", result: { action: "business_summary", ...report }, reply: `ملخص ${org.name}: العملاء ${report.customers}، الأصناف ${report.products}، الأصناف منخفضة المخزون ${report.low_stock} (${stockLines || "لا يوجد"})، الفواتير ${report.invoices}، قيمة الفواتير المسددة ${money(paid)}، غير المسددة ${money(outstanding)}، قيمة المخزون بالتكلفة المسجلة ${money(stockCostValue)}، المواعيد القادمة ${report.upcoming_bookings}. الأرقام محسوبة من بيانات الشركة المسجلة.` };
 }
 
 export async function GET() {
