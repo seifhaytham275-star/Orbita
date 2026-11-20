@@ -163,10 +163,14 @@ async function executeAgent(
       if (error) throw new Error("تعذر إنشاء الفاتورة. راجع صلاحيات الحساب.");
       return { status: "completed", result: { action: "invoice_created", invoice: data }, reply: `تم إنشاء مسودة فاتورة رقم ${data.invoice_number} للعميل ${data.customer_name} بقيمة ${money(amount)}. دي مسودة داخلية وليست فاتورة ضريبية إلكترونية.` };
     }
-    const { data, error } = await supabase.from("invoices").select("invoice_number,customer_name,amount,status").eq("organization_id", org.id).order("created_at", { ascending: false }).limit(20);
+    const { data, error } = await supabase.from("invoices").select("invoice_number,customer_name,amount,status,due_date,created_at").eq("organization_id", org.id).order("created_at", { ascending: false }).limit(100);
     if (error) throw new Error("تعذر قراءة الفواتير.");
-    const unpaid = (data ?? []).filter(i => i.status !== "paid" && i.status !== "cancelled").reduce((sum, i) => sum + Number(i.amount), 0);
-    return { status: "completed", result: { action: "invoice_summary", invoices: data ?? [], outstanding: unpaid }, reply: `عدد آخر الفواتير المعروضة: ${data?.length ?? 0}. إجمالي الفواتير غير المسددة: ${money(unpaid)}.` };
+    const customerQuery = message.match(/(?:فواتير|فاتورة)\s+(?:العميل|لـ|ل)\s*(.+)$/i)?.[1]?.trim();
+    const filtered = customerQuery ? (data ?? []).filter(i => i.customer_name.toLocaleLowerCase("ar").includes(customerQuery.toLocaleLowerCase("ar"))) : (data ?? []);
+    const unpaid = filtered.filter(i => i.status !== "paid" && i.status !== "cancelled").reduce((sum, i) => sum + Number(i.amount), 0);
+    const paid = filtered.filter(i => i.status === "paid").reduce((sum, i) => sum + Number(i.amount), 0);
+    const lines = filtered.slice(0, 15).map(i => `${i.invoice_number} — ${i.customer_name} — ${money(Number(i.amount))} — ${i.status}`).join("\n");
+    return { status: "completed", result: { action: customerQuery ? "customer_invoice_summary" : "invoice_summary", customer: customerQuery ?? null, invoices: filtered, outstanding: unpaid, paid }, reply: `${customerQuery ? `فواتير ${customerQuery}: ` : ""}عدد الفواتير ${filtered.length}. المسدد ${money(paid)}، وغير المسدد ${money(unpaid)}.\n${lines || "لا توجد فواتير مطابقة."}` };
   }
 
   if (agent === "Pulse") {
@@ -186,16 +190,40 @@ async function executeAgent(
   }
 
   if (agent === "Echo") {
-    const { data, error } = await supabase.from("customers").select("name,phone").eq("organization_id", org.id).order("created_at", { ascending: false }).limit(10);
+    const normalized = message.replace(/[٠-٩]/g, digit => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)));
+    const addCustomer = normalized.match(/(?:سجل|أضف|اضف|ضيف)\s+(?:عميل|زبون)\s+(.+?)(?:\s+(?:رقم|موبايل|تليفون)\s*([+\d\s-]+))?$/i);
+    if (addCustomer) {
+      const name = addCustomer[1].trim().slice(0, 180);
+      const phone = addCustomer[2]?.replace(/\s+/g, "") || null;
+      if (!name) throw new Error("اكتب اسم العميل.");
+      const { data: existing, error: findError } = await supabase.from("customers").select("id,name,phone").eq("organization_id", org.id).ilike("name", name).limit(1).maybeSingle();
+      if (findError) throw new Error("تعذر التحقق من سجل العملاء.");
+      if (existing) return { status: "completed", result: { action: "customer_exists", customer: existing }, reply: `العميل ${existing.name} مسجل بالفعل في قاعدة بيانات الشركة.` };
+      const { data, error } = await supabase.from("customers").insert({ organization_id: org.id, name, phone }).select("id,name,phone,created_at").single();
+      if (error) throw new Error("تعذر تسجيل العميل.");
+      return { status: "completed", result: { action: "customer_created", customer: data }, reply: `تم تسجيل العميل ${data.name} بنجاح في سجل العملاء.` };
+    }
+    const customerQuery = normalized.match(/(?:بيانات|معلومات|دور على|ابحث عن)\s+(?:العميل|عميل)?\s*(.+)$/i)?.[1]?.trim();
+    const { data, error } = await supabase.from("customers").select("name,phone,email,notes,created_at").eq("organization_id", org.id).order("created_at", { ascending: false }).limit(100);
     if (error) throw new Error("تعذر قراءة سجل العملاء.");
+    const customers = customerQuery ? (data ?? []).filter(x => x.name.toLocaleLowerCase("ar").includes(customerQuery.toLocaleLowerCase("ar")) || (x.phone ?? "").includes(customerQuery)) : (data ?? []).slice(0, 15);
+    if (customerQuery) {
+      const list = customers.map(x => `${x.name} — ${x.phone || "لا يوجد رقم مسجل"} — ${x.email || "لا يوجد بريد"}`).join("\n");
+      return { status: "completed", result: { action: "customer_lookup", query: customerQuery, customers }, reply: list || `مش لاقي عميل مطابق لـ "${customerQuery}" في سجل الشركة.` };
+    }
     const template = `أهلًا بحضرتك، شكرًا لتواصلك مع ${org.name}. يسعدنا مساعدتك. من فضلك ابعت تفاصيل طلبك أو استفسارك، وفريقنا هيتابع معاك.`;
-    return { status: "completed", result: { action: "customer_service_draft", draft: template, recent_customers: data ?? [], delivery: "not_connected" }, reply: `جهزت لك مسودة رد لخدمة العملاء: "${template}" لم يتم إرسال أي رسالة؛ ربط WhatsApp غير مفعّل بعد.` };
+    return { status: "completed", result: { action: "customer_service_draft", draft: template, recent_customers: customers, delivery: "not_connected" }, reply: `جهزت مسودة رد لخدمة العملاء: "${template}" لم يتم إرسال أي رسالة؛ لا يوجد ربط إرسال خارجي مفعّل.` };
   }
 
   if (agent === "Reach") {
     const topic = message.replace(/^(?:اكتب|اعمل|جهز|جهّز|أنشئ|انشئ)?\s*(?:منشور|محتوى|إعلان|اعلان|حملة تسويقية)?\s*/i, "").trim() || org.industry;
-    const draft = `✨ ${org.name}\n\nبتدور على ${topic}؟ إحنا هنا علشان نسهّل عليك ونقدملك تجربة مناسبة لاحتياجاتك.\n\n📩 ابعتلنا رسالة واعرف التفاصيل.\n\n#${org.name.replace(/\s+/g, "_")} #${org.industry.replace(/\s+/g, "_")}`;
-    return { status: "completed", result: { action: "marketing_draft", draft, generated_by: "template_engine" }, reply: `جهزت مسودة محتوى تسويقي مبدئية:\n${draft}\nدي مسودة قالبية وليست ناتج نموذج ذكاء اصطناعي.` };
+    const isOffer = /عرض|خصم|تخفيض|offer|discount/i.test(message);
+    const isLaunch = /افتتاح|جديد|إطلاق|اطلاق|launch/i.test(message);
+    const isAwareness = /تعريف|نبذة|من نحن|awareness/i.test(message);
+    const hook = isOffer ? "عندنا عرض مميز لفترة محدودة!" : isLaunch ? "استنوا الجديد مننا!" : isAwareness ? `خلينا نعرّفكم على ${org.name}.` : `بتدور على ${topic}؟`;
+    const value = isOffer ? "استفيدوا من العرض واسألونا عن التفاصيل والشروط." : isLaunch ? "تابعونا علشان تعرفوا كل التفاصيل أول بأول." : isAwareness ? `بنشتغل في مجال ${org.industry} وهدفنا نقدم خدمة واضحة وتجربة مريحة.` : "هنساعدك تختار الحل المناسب لاحتياجك بخطوات واضحة.";
+    const draft = `✨ ${hook}\n\n${value}\n\n📩 ابعتلنا رسالة واعرف التفاصيل.\n\n#${org.name.replace(/\s+/g, "_")} #${org.industry.replace(/\s+/g, "_")}`;
+    return { status: "completed", result: { action: "marketing_draft", draft, topic, campaign_type: isOffer ? "offer" : isLaunch ? "launch" : isAwareness ? "awareness" : "general", generated_by: "local_template_engine" }, reply: `جهزت مسودة تسويقية مناسبة لنوع الطلب:\n${draft}\nدي مسودة محلية قابلة للتعديل وليست منشورًا منشورًا بالفعل.` };
   }
 
   const [customers, products, invoices, bookings] = await Promise.all([
