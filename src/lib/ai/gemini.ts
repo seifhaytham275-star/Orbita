@@ -1,4 +1,5 @@
 export const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+const GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite";
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/interactions";
 
 type GeminiErrorPayload = {
@@ -42,7 +43,7 @@ function safeGeminiError(status: number, payload: GeminiErrorPayload): GeminiApi
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-export async function generateGeminiText(apiKey: string, prompt: string, maxOutputTokens = 32): Promise<string> {
+async function requestGeminiModel(apiKey: string, prompt: string, model: string, maxOutputTokens: number): Promise<{ response: Response; payload?: GeminiErrorPayload }> {
   let response: Response | undefined;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -50,7 +51,7 @@ export async function generateGeminiText(apiKey: string, prompt: string, maxOutp
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
         body: JSON.stringify({
-          model: GEMINI_MODEL,
+          model,
           input: prompt,
           store: false,
           generation_config: { max_output_tokens: maxOutputTokens, temperature: 0 }
@@ -77,15 +78,22 @@ export async function generateGeminiText(apiKey: string, prompt: string, maxOutp
 
   if (!response) throw new GeminiApiError("تعذر إنشاء اتصال بخدمة Gemini.", 502, "NETWORK_ERROR");
   const raw = await response.text();
-  let payload: GeminiErrorPayload;
+  let payload: GeminiErrorPayload | undefined;
   try { payload = JSON.parse(raw) as GeminiErrorPayload; }
   catch {
-    if (!response.ok) throw new GeminiApiError("أعاد Gemini استجابة غير مفهومة (HTTP " + response.status + ").", response.status >= 500 ? response.status : response.status, "INVALID_PROVIDER_RESPONSE", response.status);
+    if (!response.ok) throw new GeminiApiError("أعاد Gemini استجابة غير مفهومة (HTTP " + response.status + ").", response.status, "INVALID_PROVIDER_RESPONSE", response.status);
     throw new GeminiApiError("أعاد Gemini استجابة غير صالحة للقراءة.", 502, "INVALID_PROVIDER_RESPONSE");
   }
-  if (!response.ok) throw safeGeminiError(response.status, payload);
+  return { response, payload };
+}
 
-  const text = payload.steps
+export async function generateGeminiText(apiKey: string, prompt: string, maxOutputTokens = 32): Promise<string> {
+  let result = await requestGeminiModel(apiKey, prompt, GEMINI_MODEL, maxOutputTokens);
+  if (result.response.status === 503 && GEMINI_MODEL !== GEMINI_FALLBACK_MODEL) {
+    result = await requestGeminiModel(apiKey, prompt, GEMINI_FALLBACK_MODEL, maxOutputTokens);
+  }
+  if (!result.response.ok) throw safeGeminiError(result.response.status, result.payload || {});
+  const text = result.payload?.steps
     ?.filter(step => step.type === "model_output")
     .flatMap(step => step.content || [])
     .filter(part => part.type === "text")
