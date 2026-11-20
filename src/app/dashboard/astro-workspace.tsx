@@ -38,7 +38,7 @@ export default function AstroWorkspace({organizationId}:{organizationId:string|n
    <button className={"astro-nav-main "+(active==="Astro"?"active":"")} onClick={()=>{setActive("Astro");setError("");setNotice("");}}><span>✦</span><span><b>Astro</b><small>المساعد الرئيسي</small></span></button>
    <p className="astro-side-label">SPECIALIST AGENTS</p>
    {agents.map((agent,index)=><button key={agent.name} className={"astro-nav-agent "+(active===agent.name?"active":"")} onClick={()=>{setActive(agent.name);setError("");setNotice("");}}><span className="astro-agent-icon">{agent.icon}</span><span><b>{agent.name}</b><small>{agent.label}</small></span><i>{String(index+1).padStart(2,"0")}</i></button>)}
-   <div className="astro-side-bottom"><span className={credential.configured?"astro-dot online":"astro-dot"}></span>{credential.configured?"Gemini متصل":"Gemini غير مربوط"}</div>
+   <div className="astro-side-bottom"><span className="astro-dot online"></span>ORBITA Local Engine</div>
   </aside>
   <div className="astro-main">
    <header className="astro-topline"><div><p className="eyebrow">ORBITA INTELLIGENCE</p><h2>{active==="Astro"?"Astro — مركز القيادة":selected?.label+" · "+active}</h2><p>{active==="Astro"?"المساعد الرئيسي الذي ينسّق العمل بين الوكلاء.":selected?.description}</p></div><span className="astro-live">WORKSPACE ACTIVE</span></header>
