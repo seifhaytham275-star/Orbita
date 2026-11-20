@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import type { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function encryptionKey(): Buffer {
   const raw = process.env.CREDENTIALS_ENCRYPTION_KEY || "";
@@ -22,7 +23,7 @@ export function decryptCredential(value: string): string {
   return Buffer.concat([decipher.update(Buffer.from(encryptedText, "base64")), decipher.final()]).toString("utf8");
 }
 
-export async function getUserGeminiKey(supabase: { from: (table: string) => any }, userId: string): Promise<string | null> {
+export async function getUserGeminiKey(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, userId: string): Promise<string | null> {
   const { data, error } = await supabase.from("user_ai_credentials").select("encrypted_api_key").eq("user_id", userId).maybeSingle();
   if (error) throw new Error("تعذر تحميل إعداد Gemini.");
   return data?.encrypted_api_key ? decryptCredential(data.encrypted_api_key) : null;
