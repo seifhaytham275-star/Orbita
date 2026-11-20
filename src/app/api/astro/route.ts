@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { classifyAstroAgent, getAIProviderName } from "@/lib/ai/provider";
-import { getUserGeminiKey } from "@/lib/ai/credentials";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,7 +8,7 @@ type Agent = "Ledger" | "Echo" | "Pulse" | "Stock" | "Reach" | "Insight";
 type OrgContext = { id: string; name: string; industry: string; role: string; planCode: string };
 
 const routing: Array<{ agent: Agent; keywords: string[] }> = [
-  { agent: "Stock", keywords: ["مخزون","صنف","منتج","شراء","كمية","stock","inventory","product"] },
+  { agent: "Stock", keywords: ["مخزون","صنف","منتج","شراء","كمية","رصيد","سكر","أرز","رز","دقيق","زيت","جرام","غرام","كيلو","stock","inventory","product"] },
   { agent: "Pulse", keywords: ["حجز","موعد","تذكير","booking","appointment","reminder"] },
   { agent: "Ledger", keywords: ["فاتورة","حساب","مبيعات","مصروف","invoice","account","sales"] },
   { agent: "Echo", keywords: ["عميل","رسالة","طلب","واتساب","خدمة العملاء","customer","order","whatsapp"] },
@@ -65,16 +63,9 @@ function pickAgent(message: string): Agent {
   return routing.find(item => item.keywords.some(keyword => normalized.includes(keyword)))?.agent ?? "Insight";
 }
 
-async function routeAgent(message: string, geminiKey: string | null, selectedAgent?: Agent): Promise<{ agent: Agent; mode: "ai" | "keyword_fallback"; provider: string }> {
-  if (selectedAgent) return { agent: selectedAgent, mode: "keyword_fallback", provider: "user-selected-agent" };
-  try {
-    const classified = await classifyAstroAgent(message, geminiKey);
-    if (classified) return { agent: classified.agent, mode: "ai", provider: classified.provider };
-  } catch (error) {
-    // Keep the deterministic fallback available, but make the degraded mode visible to callers.
-    console.error("[astro] AI routing failed; using keyword fallback", error);
-  }
-  return { agent: pickAgent(message), mode: "keyword_fallback", provider: getAIProviderName() };
+async function routeAgent(message: string, selectedAgent?: Agent): Promise<{ agent: Agent; mode: "local_rules"; provider: "orbita-local" }> {
+  if (selectedAgent) return { agent: selectedAgent, mode: "local_rules", provider: "orbita-local" };
+  return { agent: pickAgent(message), mode: "local_rules", provider: "orbita-local" };
 }
 
 async function executeAgent(
@@ -95,25 +86,69 @@ async function executeAgent(
   }
 
   if (agent === "Stock") {
-    const addMatch = message.match(/(?:أضف|اضف|سجل|ضيف).*?(?:صنف|منتج)?\s*([^،,]+?)\s+(?:بكمية|كمية|عدد)\s*(\d+(?:\.\d+)?)/i);
-    if (addMatch && /(أضف|اضف|سجل|ضيف)/i.test(message)) {
-      const name = addMatch[1].trim().replace(/^(?:صنف|منتج)\s*/i, "").slice(0, 180);
-      const quantity = Number(addMatch[2]);
-      if (!name || !Number.isFinite(quantity) || quantity < 0) throw new Error("اكتب اسم الصنف والكمية بشكل صحيح، مثال: أضف صنف ورق بكمية 20.");
-      const { data: productId, error } = await supabase.rpc("orbita_create_product", {
-        p_organization_id: org.id, p_name: name, p_quantity: quantity, p_unit: "قطعة",
+    const normalizedMessage = message.replace(/[٠-٩]/g, digit => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)));
+    const stockInput = normalizedMessage.match(/(?:عندي|لدينا|متوفر(?:\s+عندنا)?|سجل(?:\s+في\s+المخزون)?|أضف|اضف|ضيف)(?:\s+رصيد)?\s*(\d+(?:[.,]\d+)?)\s*(جرام|غرام|جم|كيلوجرام|كيلو|كجم|مل|لتر|قطعة|علبة|كرتونة)?\s+(?:من\s+)?(.+)/i);
+    const legacyInput = normalizedMessage.match(/(?:أضف|اضف|سجل|ضيف).*?(?:صنف|منتج)?\s*([^،,]+?)\s+(?:بكمية|كمية|عدد)\s*(\d+(?:[.,]\d+)?)/i);
+    const input = stockInput
+      ? { quantity: Number(stockInput[1].replace(",", ".")), unit: stockInput[2] || "قطعة", name: stockInput[3], mode: /^(?:عندي|لدينا|متوفر)/i.test(normalizedMessage) ? "set" : "add" }
+      : legacyInput && /(?:أضف|اضف|سجل|ضيف)/i.test(normalizedMessage)
+        ? { quantity: Number(legacyInput[2]), unit: "قطعة", name: legacyInput[1], mode: "add" }
+        : null;
+
+    if (input) {
+      const name = input.name.replace(/\s+(?:في\s+المخزون|عندنا)$/i, "").trim().replace(/^(?:صنف|منتج)\s*/i, "").slice(0, 160);
+      const quantity = input.quantity;
+      const unitAliases: Record<string, string> = { غرام: "جرام", جم: "جرام", كيلو: "كيلوجرام", كجم: "كيلوجرام" };
+      const unit = unitAliases[input.unit] || input.unit;
+      if (!name || !Number.isFinite(quantity) || quantity <= 0) throw new Error("اكتب اسم الصنف وكمية أكبر من صفر، مثال: عندي 500 جرام سكر.");
+      const { data: existing, error: findError } = await supabase.from("products")
+        .select("id,name,quantity,unit").eq("organization_id", org.id).ilike("name", name).limit(1).maybeSingle();
+      if (findError) throw new Error("تعذر التحقق من الصنف الحالي في المخزون.");
+      if (existing) {
+        if (unit !== existing.unit && !(unit === "قطعة" && !stockInput)) {
+          throw new Error(`وحدة الصنف المسجلة هي "${existing.unit}" وليست "${unit}". لم أغيّر المخزون لتجنب خلط الوحدات.`);
+        }
+        const delta = input.mode === "set" ? quantity - Number(existing.quantity) : quantity;
+        if (delta === 0) {
+          return { status: "completed", result: { action: "stock_verified", product: existing }, reply: `رصيد ${existing.name} بالفعل ${existing.quantity} ${existing.unit}، ولم أغيّر أي شيء.` };
+        }
+        const { data: newQuantity, error: adjustError } = await supabase.rpc("orbita_adjust_stock", {
+          p_organization_id: org.id, p_product_id: existing.id, p_delta: delta,
+          p_note: input.mode === "set" ? "تحديث الرصيد من Astro" : "إضافة كمية من Astro"
+        });
+        if (adjustError) throw new Error("تعذر تحديث رصيد الصنف. لم يتم تسجيل حركة جزئية.");
+        return { status: "completed", result: { action: input.mode === "set" ? "stock_set" : "stock_added", product_id: existing.id, name: existing.name, previous_quantity: existing.quantity, quantity: newQuantity, unit: existing.unit }, reply: input.mode === "set" ? `تم تحديث رصيد ${existing.name} إلى ${newQuantity} ${existing.unit}.` : `تمت إضافة ${quantity} ${existing.unit} إلى ${existing.name}. الرصيد الجديد ${newQuantity} ${existing.unit}.` };
+      }
+      const { data: productId, error: createError } = await supabase.rpc("orbita_create_product", {
+        p_organization_id: org.id, p_name: name, p_quantity: quantity, p_unit: unit,
         p_reorder_level: 0, p_unit_cost: 0, p_sale_price: 0
       });
-      if (error || !productId) throw new Error("تعذر إضافة الصنف. لم يتم حفظ رصيد جزئي.");
-      const { data, error: readError } = await supabase.from("products").select("id,name,quantity,unit").eq("id", productId).eq("organization_id", org.id).single();
-      if (readError || !data) throw new Error("تم إنشاء الصنف لكن تعذر تحميل تفاصيله.");
-      return { status: "completed", result: { action: "product_created", product: data }, reply: `تمت إضافة الصنف "${data.name}" برصيد ${data.quantity} ${data.unit}.` };
+      if (createError || !productId) throw new Error("تعذر إضافة الصنف. لم يتم حفظ رصيد جزئي.");
+      const { data: created, error: readError } = await supabase.from("products").select("id,name,quantity,unit")
+        .eq("id", productId).eq("organization_id", org.id).single();
+      if (readError || !created) throw new Error("تم تسجيل الصنف لكن تعذر قراءة تفاصيله.");
+      return { status: "completed", result: { action: "product_created", product: created }, reply: `تم تسجيل ${created.name} في المخزون برصيد ${created.quantity} ${created.unit}.` };
     }
-    const { data, error } = await supabase.from("products").select("name,sku,quantity,unit,reorder_level").eq("organization_id", org.id).order("name").limit(100);
+
+    const { data, error } = await supabase.from("products")
+      .select("id,name,sku,quantity,unit,reorder_level").eq("organization_id", org.id).order("name").limit(300);
     if (error) throw new Error("تعذر قراءة المخزون.");
-    const low = (data ?? []).filter(p => Number(p.quantity) <= Number(p.reorder_level));
-    const summary = (data ?? []).slice(0, 12).map(p => `${p.name}: ${p.quantity} ${p.unit}`).join("؛ ");
-    return { status: "completed", result: { action: "inventory_report", count: data?.length ?? 0, low_stock: low }, reply: `المخزون يحتوي على ${data?.length ?? 0} صنف. أصناف وصلت لحد إعادة الطلب: ${low.length}. ${summary || "لا توجد أصناف مسجلة بعد."}` };
+    const queryMatch = normalizedMessage.match(/(?:كام|كم)\s+(?:من\s+)?(.+?)(?:\s*[؟?])?$/i)
+      || normalizedMessage.match(/(?:رصيد|كمية)\s+(.+?)(?:\s*[؟?])?$/i);
+    const queryName = queryMatch?.[1]?.trim().replace(/^(?:عندنا|لدينا)\s+/, "").replace(/\s+(?:عندنا|في المخزون)$/, "");
+    const matches = queryName
+      ? (data ?? []).filter(p => p.name.toLocaleLowerCase("ar").includes(queryName.toLocaleLowerCase("ar")))
+      : (data ?? []);
+    if (queryName && matches.length === 0) {
+      return { status: "completed", result: { action: "product_not_found", query: queryName }, reply: `مش لاقي صنف باسم "${queryName}" مسجل في مخزون الشركة. لم أضف أو أغيّر أي بيانات.` };
+    }
+    const low = matches.filter(p => Number(p.quantity) <= Number(p.reorder_level));
+    const summary = matches.slice(0, 30).map(p => `${p.name}: ${p.quantity} ${p.unit}`).join("؛ ");
+    return {
+      status: "completed",
+      result: { action: queryName ? "product_stock_lookup" : "inventory_report", query: queryName || null, count: matches.length, products: matches, low_stock: low },
+      reply: queryName ? summary : `المخزون يحتوي على ${matches.length} صنف. الأصناف عند حد إعادة الطلب أو أقل: ${low.length}. ${summary || "لا توجد أصناف مسجلة بعد."}`
+    };
   }
 
   if (agent === "Ledger") {
@@ -128,10 +163,14 @@ async function executeAgent(
       if (error) throw new Error("تعذر إنشاء الفاتورة. راجع صلاحيات الحساب.");
       return { status: "completed", result: { action: "invoice_created", invoice: data }, reply: `تم إنشاء مسودة فاتورة رقم ${data.invoice_number} للعميل ${data.customer_name} بقيمة ${money(amount)}. دي مسودة داخلية وليست فاتورة ضريبية إلكترونية.` };
     }
-    const { data, error } = await supabase.from("invoices").select("invoice_number,customer_name,amount,status").eq("organization_id", org.id).order("created_at", { ascending: false }).limit(20);
+    const { data, error } = await supabase.from("invoices").select("invoice_number,customer_name,amount,status,due_date,created_at").eq("organization_id", org.id).order("created_at", { ascending: false }).limit(100);
     if (error) throw new Error("تعذر قراءة الفواتير.");
-    const unpaid = (data ?? []).filter(i => i.status !== "paid" && i.status !== "cancelled").reduce((sum, i) => sum + Number(i.amount), 0);
-    return { status: "completed", result: { action: "invoice_summary", invoices: data ?? [], outstanding: unpaid }, reply: `عدد آخر الفواتير المعروضة: ${data?.length ?? 0}. إجمالي الفواتير غير المسددة: ${money(unpaid)}.` };
+    const customerQuery = message.match(/(?:فواتير|فاتورة)\s+(?:العميل|لـ|ل)\s*(.+)$/i)?.[1]?.trim();
+    const filtered = customerQuery ? (data ?? []).filter(i => i.customer_name.toLocaleLowerCase("ar").includes(customerQuery.toLocaleLowerCase("ar"))) : (data ?? []);
+    const unpaid = filtered.filter(i => i.status !== "paid" && i.status !== "cancelled").reduce((sum, i) => sum + Number(i.amount), 0);
+    const paid = filtered.filter(i => i.status === "paid").reduce((sum, i) => sum + Number(i.amount), 0);
+    const lines = filtered.slice(0, 15).map(i => `${i.invoice_number} — ${i.customer_name} — ${money(Number(i.amount))} — ${i.status}`).join("\n");
+    return { status: "completed", result: { action: customerQuery ? "customer_invoice_summary" : "invoice_summary", customer: customerQuery ?? null, invoices: filtered, outstanding: unpaid, paid }, reply: `${customerQuery ? `فواتير ${customerQuery}: ` : ""}عدد الفواتير ${filtered.length}. المسدد ${money(paid)}، وغير المسدد ${money(unpaid)}.\n${lines || "لا توجد فواتير مطابقة."}` };
   }
 
   if (agent === "Pulse") {
@@ -145,35 +184,70 @@ async function executeAgent(
       if (error) throw new Error("تعذر تسجيل الموعد.");
       return { status: "completed", result: { action: "booking_created", booking: data }, reply: `تم تسجيل موعد "${title}" يوم ${startsAt.toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })}.` };
     }
-    const { data, error } = await supabase.from("bookings").select("title,starts_at,status").eq("organization_id", org.id).order("starts_at").limit(20);
+    const { data, error } = await supabase.from("bookings").select("title,starts_at,status,customer_id,customers(name)").eq("organization_id", org.id).gte("starts_at", new Date().toISOString()).neq("status", "cancelled").order("starts_at").limit(100);
     if (error) throw new Error("تعذر تحميل المواعيد.");
-    return { status: "completed", result: { action: "booking_list", bookings: data ?? [] }, reply: `لديك ${data?.length ?? 0} موعدًا في قائمة المواعيد القادمة المعروضة.` };
+    const searchTerm = message.match(/(?:مواعيد|موعد)\s+(?:العميل|لـ|ل)\s*(.+)$/i)?.[1]?.trim();
+    const filtered = searchTerm ? (data ?? []).filter(b => {
+      const customer = Array.isArray(b.customers) ? b.customers[0] : b.customers;
+      return b.title.toLocaleLowerCase("ar").includes(searchTerm.toLocaleLowerCase("ar")) || (customer?.name ?? "").toLocaleLowerCase("ar").includes(searchTerm.toLocaleLowerCase("ar"));
+    }) : (data ?? []);
+    const lines = filtered.slice(0, 20).map(b => `${b.title} — ${new Date(b.starts_at).toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })} — ${b.status}`).join("\n");
+    return { status: "completed", result: { action: searchTerm ? "customer_booking_lookup" : "booking_list", query: searchTerm ?? null, bookings: filtered }, reply: `${searchTerm ? `مواعيد ${searchTerm}: ` : "المواعيد القادمة: "}${filtered.length} موعد.\n${lines || "لا توجد مواعيد مطابقة."}` };
   }
 
   if (agent === "Echo") {
-    const { data, error } = await supabase.from("customers").select("name,phone").eq("organization_id", org.id).order("created_at", { ascending: false }).limit(10);
+    const normalized = message.replace(/[٠-٩]/g, digit => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)));
+    const addCustomer = normalized.match(/(?:سجل|أضف|اضف|ضيف)\s+(?:عميل|زبون)\s+(.+?)(?:\s+(?:رقم|موبايل|تليفون)\s*([+\d\s-]+))?$/i);
+    if (addCustomer) {
+      const name = addCustomer[1].trim().slice(0, 180);
+      const phone = addCustomer[2]?.replace(/\s+/g, "") || null;
+      if (!name) throw new Error("اكتب اسم العميل.");
+      const { data: existing, error: findError } = await supabase.from("customers").select("id,name,phone").eq("organization_id", org.id).ilike("name", name).limit(1).maybeSingle();
+      if (findError) throw new Error("تعذر التحقق من سجل العملاء.");
+      if (existing) return { status: "completed", result: { action: "customer_exists", customer: existing }, reply: `العميل ${existing.name} مسجل بالفعل في قاعدة بيانات الشركة.` };
+      const { data, error } = await supabase.from("customers").insert({ organization_id: org.id, name, phone }).select("id,name,phone,created_at").single();
+      if (error) throw new Error("تعذر تسجيل العميل.");
+      return { status: "completed", result: { action: "customer_created", customer: data }, reply: `تم تسجيل العميل ${data.name} بنجاح في سجل العملاء.` };
+    }
+    const customerQuery = normalized.match(/(?:بيانات|معلومات|دور على|ابحث عن)\s+(?:العميل|عميل)?\s*(.+)$/i)?.[1]?.trim();
+    const { data, error } = await supabase.from("customers").select("name,phone,email,notes,created_at").eq("organization_id", org.id).order("created_at", { ascending: false }).limit(100);
     if (error) throw new Error("تعذر قراءة سجل العملاء.");
+    const customers = customerQuery ? (data ?? []).filter(x => x.name.toLocaleLowerCase("ar").includes(customerQuery.toLocaleLowerCase("ar")) || (x.phone ?? "").includes(customerQuery)) : (data ?? []).slice(0, 15);
+    if (customerQuery) {
+      const list = customers.map(x => `${x.name} — ${x.phone || "لا يوجد رقم مسجل"} — ${x.email || "لا يوجد بريد"}`).join("\n");
+      return { status: "completed", result: { action: "customer_lookup", query: customerQuery, customers }, reply: list || `مش لاقي عميل مطابق لـ "${customerQuery}" في سجل الشركة.` };
+    }
     const template = `أهلًا بحضرتك، شكرًا لتواصلك مع ${org.name}. يسعدنا مساعدتك. من فضلك ابعت تفاصيل طلبك أو استفسارك، وفريقنا هيتابع معاك.`;
-    return { status: "completed", result: { action: "customer_service_draft", draft: template, recent_customers: data ?? [], delivery: "not_connected" }, reply: `جهزت لك مسودة رد لخدمة العملاء: "${template}" لم يتم إرسال أي رسالة؛ ربط WhatsApp غير مفعّل بعد.` };
+    return { status: "completed", result: { action: "customer_service_draft", draft: template, recent_customers: customers, delivery: "not_connected" }, reply: `جهزت مسودة رد لخدمة العملاء: "${template}" لم يتم إرسال أي رسالة؛ لا يوجد ربط إرسال خارجي مفعّل.` };
   }
 
   if (agent === "Reach") {
     const topic = message.replace(/^(?:اكتب|اعمل|جهز|جهّز|أنشئ|انشئ)?\s*(?:منشور|محتوى|إعلان|اعلان|حملة تسويقية)?\s*/i, "").trim() || org.industry;
-    const draft = `✨ ${org.name}\n\nبتدور على ${topic}؟ إحنا هنا علشان نسهّل عليك ونقدملك تجربة مناسبة لاحتياجاتك.\n\n📩 ابعتلنا رسالة واعرف التفاصيل.\n\n#${org.name.replace(/\s+/g, "_")} #${org.industry.replace(/\s+/g, "_")}`;
-    return { status: "completed", result: { action: "marketing_draft", draft, generated_by: "template_engine" }, reply: `جهزت مسودة محتوى تسويقي مبدئية:\n${draft}\nدي مسودة قالبية وليست ناتج نموذج ذكاء اصطناعي.` };
+    const isOffer = /عرض|خصم|تخفيض|offer|discount/i.test(message);
+    const isLaunch = /افتتاح|جديد|إطلاق|اطلاق|launch/i.test(message);
+    const isAwareness = /تعريف|نبذة|من نحن|awareness/i.test(message);
+    const hook = isOffer ? "عندنا عرض مميز لفترة محدودة!" : isLaunch ? "استنوا الجديد مننا!" : isAwareness ? `خلينا نعرّفكم على ${org.name}.` : `بتدور على ${topic}؟`;
+    const value = isOffer ? "استفيدوا من العرض واسألونا عن التفاصيل والشروط." : isLaunch ? "تابعونا علشان تعرفوا كل التفاصيل أول بأول." : isAwareness ? `بنشتغل في مجال ${org.industry} وهدفنا نقدم خدمة واضحة وتجربة مريحة.` : "هنساعدك تختار الحل المناسب لاحتياجك بخطوات واضحة.";
+    const draft = `✨ ${hook}\n\n${value}\n\n📩 ابعتلنا رسالة واعرف التفاصيل.\n\n#${org.name.replace(/\s+/g, "_")} #${org.industry.replace(/\s+/g, "_")}`;
+    return { status: "completed", result: { action: "marketing_draft", draft, topic, campaign_type: isOffer ? "offer" : isLaunch ? "launch" : isAwareness ? "awareness" : "general", generated_by: "local_template_engine" }, reply: `جهزت مسودة تسويقية مناسبة لنوع الطلب:\n${draft}\nدي مسودة محلية قابلة للتعديل وليست منشورًا منشورًا بالفعل.` };
   }
 
   const [customers, products, invoices, bookings] = await Promise.all([
     supabase.from("customers").select("id", { count: "exact", head: true }).eq("organization_id", org.id),
-    supabase.from("products").select("id,name,quantity,reorder_level").eq("organization_id", org.id),
-    supabase.from("invoices").select("amount,status").eq("organization_id", org.id),
-    supabase.from("bookings").select("id", { count: "exact", head: true }).eq("organization_id", org.id).gte("starts_at", new Date().toISOString())
+    supabase.from("products").select("id,name,quantity,unit,reorder_level,unit_cost,sale_price").eq("organization_id", org.id).order("name").limit(500),
+    supabase.from("invoices").select("invoice_number,customer_name,amount,status,created_at").eq("organization_id", org.id).order("created_at", { ascending: false }).limit(500),
+    supabase.from("bookings").select("id", { count: "exact", head: true }).eq("organization_id", org.id).gte("starts_at", new Date().toISOString()).neq("status", "cancelled")
   ]);
   if (customers.error || products.error || invoices.error || bookings.error) throw new Error("تعذر تكوين التقرير من بيانات الشركة.");
-  const outstanding = (invoices.data ?? []).filter(i => i.status !== "paid" && i.status !== "cancelled").reduce((sum, i) => sum + Number(i.amount), 0);
+  const outstandingInvoices = (invoices.data ?? []).filter(i => i.status !== "paid" && i.status !== "cancelled");
+  const paidInvoices = (invoices.data ?? []).filter(i => i.status === "paid");
+  const outstanding = outstandingInvoices.reduce((sum, i) => sum + Number(i.amount), 0);
+  const paid = paidInvoices.reduce((sum, i) => sum + Number(i.amount), 0);
   const lowStock = (products.data ?? []).filter(p => Number(p.quantity) <= Number(p.reorder_level));
-  const report = { customers: customers.count ?? 0, products: products.data?.length ?? 0, low_stock: lowStock.length, invoices: invoices.data?.length ?? 0, outstanding_egp: outstanding, upcoming_bookings: bookings.count ?? 0 };
-  return { status: "completed", result: { action: "business_summary", ...report }, reply: `ملخص ${org.name}: العملاء ${report.customers}، الأصناف ${report.products}، الأصناف منخفضة المخزون ${report.low_stock}، الفواتير ${report.invoices}، المبالغ غير المسددة ${money(outstanding)}، المواعيد القادمة ${report.upcoming_bookings}.` };
+  const stockCostValue = (products.data ?? []).reduce((sum, p) => sum + Number(p.quantity) * Number(p.unit_cost), 0);
+  const stockLines = lowStock.slice(0, 8).map(p => `${p.name} (${p.quantity} ${p.unit})`).join("، ");
+  const report = { customers: customers.count ?? 0, products: products.data?.length ?? 0, low_stock: lowStock.length, low_stock_items: lowStock, invoices: invoices.data?.length ?? 0, paid_invoices: paidInvoices.length, outstanding_invoices: outstandingInvoices.length, paid_egp: paid, outstanding_egp: outstanding, stock_cost_value_egp: stockCostValue, upcoming_bookings: bookings.count ?? 0 };
+  return { status: "completed", result: { action: "business_summary", ...report }, reply: `ملخص ${org.name}: العملاء ${report.customers}، الأصناف ${report.products}، الأصناف منخفضة المخزون ${report.low_stock} (${stockLines || "لا يوجد"})، الفواتير ${report.invoices}، قيمة الفواتير المسددة ${money(paid)}، غير المسددة ${money(outstanding)}، قيمة المخزون بالتكلفة المسجلة ${money(stockCostValue)}، المواعيد القادمة ${report.upcoming_bookings}. الأرقام محسوبة من بيانات الشركة المسجلة.` };
 }
 
 export async function GET() {
@@ -185,7 +259,7 @@ export async function GET() {
   const { data: tasks, error } = await supabase.from("agent_tasks").select("id,agent_name,title,status,result,created_at")
     .eq("organization_id", org.id).order("created_at", { ascending: false }).limit(25);
   if (error) return fail("تعذر تحميل سجل المهام.", 503);
-  return NextResponse.json({ tasks: tasks ?? [], intelligence: { mode: getAIProviderName() === "not-configured" ? "keyword_fallback" : "ai_ready", provider: getAIProviderName() } });
+  return NextResponse.json({ tasks: tasks ?? [], intelligence: { mode: "local_rules", provider: "orbita-local" } });
 }
 
 export async function POST(request: Request) {
@@ -211,10 +285,7 @@ export async function POST(request: Request) {
   if (rateError) return fail("تعذر التحقق من معدل الطلبات. حاول مرة أخرى.", 503);
   if ((recentTasks ?? 0) >= 20) return fail("وصلت للحد المؤقت: 20 مهمة في الدقيقة. انتظر قليلًا ثم حاول.", 429);
 
-  let geminiKey: string | null = null;
-  try { geminiKey = await getUserGeminiKey(supabase, user.id); }
-  catch (error) { console.error("[astro] Could not load user Gemini credential", error); }
-  const route = await routeAgent(message, geminiKey, typeof rawAgent === "string" ? rawAgent as Agent : undefined);
+  const route = await routeAgent(message, typeof rawAgent === "string" ? rawAgent as Agent : undefined);
   const agent = route.agent;
   const { data: task, error: taskError } = await supabase.from("agent_tasks").insert({
     organization_id: org.id, requested_by: user.id, agent_name: agent,
