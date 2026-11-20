@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { classifyAstroAgent, getAIProviderName } from "@/lib/ai/provider";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,33 +28,17 @@ function parseCairoLocalDateTime(dateValue: string, timeValue: string): Date | n
 
   const target = Date.UTC(year, month - 1, day, hour, minute);
   const normalized = new Date(target);
-  if (
-    normalized.getUTCFullYear() !== year ||
-    normalized.getUTCMonth() !== month - 1 ||
-    normalized.getUTCDate() !== day
-  ) return null;
+  if (normalized.getUTCFullYear() !== year || normalized.getUTCMonth() !== month - 1 || normalized.getUTCDate() !== day) return null;
 
   const formatter = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Africa/Cairo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23"
+    timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23"
   });
-
   let candidate = new Date(target - 2 * 60 * 60 * 1000);
   for (let attempt = 0; attempt < 4; attempt++) {
     const parts = formatter.formatToParts(candidate);
     const part = (type: string) => parts.find(item => item.type === type)?.value ?? "";
-    const actual = Date.UTC(
-      Number(part("year")),
-      Number(part("month")) - 1,
-      Number(part("day")),
-      Number(part("hour")),
-      Number(part("minute"))
-    );
+    const actual = Date.UTC(Number(part("year")), Number(part("month")) - 1, Number(part("day")), Number(part("hour")), Number(part("minute")));
     const delta = target - actual;
     if (delta === 0) return candidate;
     candidate = new Date(candidate.getTime() + delta);
@@ -69,19 +54,25 @@ async function getContext(supabase: Awaited<ReturnType<typeof createSupabaseServ
   const org = Array.isArray(data.organizations) ? data.organizations[0] : data.organizations;
   const accessEndsAt = org?.subscription_ends_at ?? org?.trial_ends_at;
   const accessEndsAtMs = accessEndsAt ? Date.parse(accessEndsAt) : Number.NaN;
-  if (
-    !org ||
-    !org.features_enabled ||
-    !["active", "trial"].includes(org.subscription_status) ||
-    !Number.isFinite(accessEndsAtMs) ||
-    accessEndsAtMs <= Date.now()
-  ) return null;
+  if (!org || !org.features_enabled || !["active", "trial"].includes(org.subscription_status) ||
+      !Number.isFinite(accessEndsAtMs) || accessEndsAtMs <= Date.now()) return null;
   return { id: data.organization_id, name: org.name, industry: org.industry, role: data.role, planCode: org.plan_code || "free" };
 }
 
 function pickAgent(message: string): Agent {
   const normalized = message.toLocaleLowerCase("ar");
   return routing.find(item => item.keywords.some(keyword => normalized.includes(keyword)))?.agent ?? "Insight";
+}
+
+async function routeAgent(message: string): Promise<{ agent: Agent; mode: "ai" | "keyword_fallback"; provider: string }> {
+  try {
+    const classified = await classifyAstroAgent(message);
+    if (classified) return { agent: classified.agent, mode: "ai", provider: classified.provider };
+  } catch (error) {
+    // Keep the deterministic fallback available, but make the degraded mode visible to callers.
+    console.error("[astro] AI routing failed; using keyword fallback", error);
+  }
+  return { agent: pickAgent(message), mode: "keyword_fallback", provider: getAIProviderName() };
 }
 
 async function executeAgent(
@@ -91,7 +82,6 @@ async function executeAgent(
   agent: Agent,
   message: string
 ): Promise<{ result: Record<string, unknown>; reply: string; status: "completed" | "needs_approval" }> {
-  // Sensitive actions are never executed by an agent without explicit owner/manager approval.
   const sensitive = /(ادفع|تحويل|استرداد|refund|payment|delete|احذف|امسح|ابعت.*للعملاء|ارسل.*للعملاء|رسالة جماعية|mass message)/i.test(message);
   if (sensitive) {
     if (!["owner", "manager"].includes(org.role)) throw new Error("الإجراء ده يحتاج موافقة مالك الشركة أو المدير.");
@@ -109,8 +99,8 @@ async function executeAgent(
       const quantity = Number(addMatch[2]);
       if (!name || !Number.isFinite(quantity) || quantity < 0) throw new Error("اكتب اسم الصنف والكمية بشكل صحيح، مثال: أضف صنف ورق بكمية 20.");
       const { data: productId, error } = await supabase.rpc("orbita_create_product", {
-        p_organization_id: org.id, p_name: name, p_quantity: quantity,
-        p_unit: "قطعة", p_reorder_level: 0, p_unit_cost: 0, p_sale_price: 0
+        p_organization_id: org.id, p_name: name, p_quantity: quantity, p_unit: "قطعة",
+        p_reorder_level: 0, p_unit_cost: 0, p_sale_price: 0
       });
       if (error || !productId) throw new Error("تعذر إضافة الصنف. لم يتم حفظ رصيد جزئي.");
       const { data, error: readError } = await supabase.from("products").select("id,name,quantity,unit").eq("id", productId).eq("organization_id", org.id).single();
@@ -168,9 +158,7 @@ async function executeAgent(
   if (agent === "Reach") {
     const topic = message.replace(/^(?:اكتب|اعمل|جهز|جهّز|أنشئ|انشئ)?\s*(?:منشور|محتوى|إعلان|اعلان|حملة تسويقية)?\s*/i, "").trim() || org.industry;
     const draft = `✨ ${org.name}\n\nبتدور على ${topic}؟ إحنا هنا علشان نسهّل عليك ونقدملك تجربة مناسبة لاحتياجاتك.\n\n📩 ابعتلنا رسالة واعرف التفاصيل.\n\n#${org.name.replace(/\s+/g, "_")} #${org.industry.replace(/\s+/g, "_")}`;
-    return { status: "completed", result: { action: "marketing_draft", draft, generated_by: "template_engine" }, reply: `جهزت مسودة محتوى تسويقي مبدئية:
-${draft}
-دي مسودة قالبية وليست ناتج نموذج ذكاء اصطناعي.` };
+    return { status: "completed", result: { action: "marketing_draft", draft, generated_by: "template_engine" }, reply: `جهزت مسودة محتوى تسويقي مبدئية:\n${draft}\nدي مسودة قالبية وليست ناتج نموذج ذكاء اصطناعي.` };
   }
 
   const [customers, products, invoices, bookings] = await Promise.all([
@@ -195,7 +183,7 @@ export async function GET() {
   const { data: tasks, error } = await supabase.from("agent_tasks").select("id,agent_name,title,status,result,created_at")
     .eq("organization_id", org.id).order("created_at", { ascending: false }).limit(25);
   if (error) return fail("تعذر تحميل سجل المهام.", 503);
-  return NextResponse.json({ tasks: tasks ?? [] });
+  return NextResponse.json({ tasks: tasks ?? [], intelligence: { mode: getAIProviderName() === "not-configured" ? "keyword_fallback" : "ai_ready", provider: getAIProviderName() } });
 }
 
 export async function POST(request: Request) {
@@ -203,10 +191,8 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return fail("سجّل الدخول أولًا.", 401);
   const body: unknown = await request.json().catch(() => null);
-  const rawMessage =
-    body && typeof body === "object" && !Array.isArray(body) && "message" in body
-      ? (body as { message?: unknown }).message
-      : undefined;
+  const rawMessage = body && typeof body === "object" && !Array.isArray(body) && "message" in body
+    ? (body as { message?: unknown }).message : undefined;
   const message = typeof rawMessage === "string" ? rawMessage.trim() : "";
   if (!message || message.length > 1200) return fail("اكتب مهمة واضحة (حتى 1200 حرف).");
   const org = await getContext(supabase, user.id);
@@ -219,10 +205,11 @@ export async function POST(request: Request) {
   if (rateError) return fail("تعذر التحقق من معدل الطلبات. حاول مرة أخرى.", 503);
   if ((recentTasks ?? 0) >= 20) return fail("وصلت للحد المؤقت: 20 مهمة في الدقيقة. انتظر قليلًا ثم حاول.", 429);
 
-  const agent = pickAgent(message);
+  const route = await routeAgent(message);
+  const agent = route.agent;
   const { data: task, error: taskError } = await supabase.from("agent_tasks").insert({
     organization_id: org.id, requested_by: user.id, agent_name: agent,
-    title: message.slice(0, 180), input: { message }, status: "running"
+    title: message.slice(0, 180), input: { message, routing_mode: route.mode, model: route.provider }, status: "running"
   }).select("id,agent_name,title,status,created_at").single();
   if (taskError || !task) return fail("تعذر تسجيل المهمة قبل التنفيذ. لم يتم تنفيذ أي إجراء.", 503);
 
@@ -242,14 +229,13 @@ export async function POST(request: Request) {
     await supabase.from("audit_logs").insert({
       organization_id: org.id, actor_id: user.id, action: "astro.task_executed",
       target_type: "agent_task", target_id: task.id,
-      metadata: { agent_name: agent, status: execution.status }
+      metadata: { agent_name: agent, status: execution.status, routing_mode: route.mode, provider: route.provider }
     });
-    return NextResponse.json({ task: updated, reply: execution.reply });
+    return NextResponse.json({ task: updated, reply: execution.reply, intelligence: { mode: route.mode, provider: route.provider } });
   } catch (error) {
     const reason = error instanceof Error ? error.message : "حدث خطأ أثناء تنفيذ المهمة.";
-    await supabase.from("agent_tasks").update({
-      status: "failed", result: { error: reason }, updated_at: new Date().toISOString()
-    }).eq("id", task.id).eq("organization_id", org.id);
+    await supabase.from("agent_tasks").update({ status: "failed", result: { error: reason }, updated_at: new Date().toISOString() })
+      .eq("id", task.id).eq("organization_id", org.id);
     return fail(reason, 422);
   }
 }
