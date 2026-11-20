@@ -87,8 +87,8 @@ async function executeAgent(
 
   if (agent === "Stock") {
     const normalizedMessage = message.replace(/[٠-٩]/g, digit => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)));
-    const stockInput = normalizedMessage.match(/(?:عندي|لدينا|متوفر(?:\\s+عندنا)?|سجل(?:\\s+في\\s+المخزون)?|أضف|اضف|ضيف)(?:\\s+رصيد)?\\s*(\\d+(?:[.,]\\d+)?)\\s*(جرام|غرام|جم|كيلوجرام|كيلو|كجم|مل|لتر|قطعة|علبة|كرتونة)?\\s+(?:من\\s+)?(.+)/i);
-    const legacyInput = normalizedMessage.match(/(?:أضف|اضف|سجل|ضيف).*?(?:صنف|منتج)?\\s*([^،,]+?)\\s+(?:بكمية|كمية|عدد)\\s*(\\d+(?:[.,]\\d+)?)/i);
+    const stockInput = normalizedMessage.match(/(?:عندي|لدينا|متوفر(?:\s+عندنا)?|سجل(?:\s+في\s+المخزون)?|أضف|اضف|ضيف)(?:\s+رصيد)?\s*(\d+(?:[.,]\d+)?)\s*(جرام|غرام|جم|كيلوجرام|كيلو|كجم|مل|لتر|قطعة|علبة|كرتونة)?\s+(?:من\s+)?(.+)/i);
+    const legacyInput = normalizedMessage.match(/(?:أضف|اضف|سجل|ضيف).*?(?:صنف|منتج)?\s*([^،,]+?)\s+(?:بكمية|كمية|عدد)\s*(\d+(?:[.,]\d+)?)/i);
     const input = stockInput
       ? { quantity: Number(stockInput[1].replace(",", ".")), unit: stockInput[2] || "قطعة", name: stockInput[3], mode: /^(?:عندي|لدينا|متوفر)/i.test(normalizedMessage) ? "set" : "add" }
       : legacyInput && /(?:أضف|اضف|سجل|ضيف)/i.test(normalizedMessage)
@@ -96,7 +96,7 @@ async function executeAgent(
         : null;
 
     if (input) {
-      const name = input.name.replace(/\\s+(?:في\\s+المخزون|عندنا)$/i, "").trim().replace(/^(?:صنف|منتج)\\s*/i, "").slice(0, 160);
+      const name = input.name.replace(/\s+(?:في\s+المخزون|عندنا)$/i, "").trim().replace(/^(?:صنف|منتج)\s*/i, "").slice(0, 160);
       const quantity = input.quantity;
       const unitAliases: Record<string, string> = { غرام: "جرام", جم: "جرام", كيلو: "كيلوجرام", كجم: "كيلوجرام" };
       const unit = unitAliases[input.unit] || input.unit;
@@ -133,9 +133,9 @@ async function executeAgent(
     const { data, error } = await supabase.from("products")
       .select("id,name,sku,quantity,unit,reorder_level").eq("organization_id", org.id).order("name").limit(300);
     if (error) throw new Error("تعذر قراءة المخزون.");
-    const queryMatch = normalizedMessage.match(/(?:كام|كم)\\s+(?:من\\s+)?(.+?)(?:\\s*[؟?])?$/i)
-      || normalizedMessage.match(/(?:رصيد|كمية)\\s+(.+?)(?:\\s*[؟?])?$/i);
-    const queryName = queryMatch?.[1]?.trim().replace(/^(?:عندنا|لدينا)\\s+/, "").replace(/\\s+(?:عندنا|في المخزون)$/, "");
+    const queryMatch = normalizedMessage.match(/(?:كام|كم)\s+(?:من\s+)?(.+?)(?:\s*[؟?])?$/i)
+      || normalizedMessage.match(/(?:رصيد|كمية)\s+(.+?)(?:\s*[؟?])?$/i);
+    const queryName = queryMatch?.[1]?.trim().replace(/^(?:عندنا|لدينا)\s+/, "").replace(/\s+(?:عندنا|في المخزون)$/, "");
     const matches = queryName
       ? (data ?? []).filter(p => p.name.toLocaleLowerCase("ar").includes(queryName.toLocaleLowerCase("ar")))
       : (data ?? []);
