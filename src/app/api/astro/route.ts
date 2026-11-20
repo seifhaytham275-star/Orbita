@@ -184,9 +184,15 @@ async function executeAgent(
       if (error) throw new Error("تعذر تسجيل الموعد.");
       return { status: "completed", result: { action: "booking_created", booking: data }, reply: `تم تسجيل موعد "${title}" يوم ${startsAt.toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })}.` };
     }
-    const { data, error } = await supabase.from("bookings").select("title,starts_at,status").eq("organization_id", org.id).order("starts_at").limit(20);
+    const { data, error } = await supabase.from("bookings").select("title,starts_at,status,customer_id,customers(name)").eq("organization_id", org.id).gte("starts_at", new Date().toISOString()).neq("status", "cancelled").order("starts_at").limit(100);
     if (error) throw new Error("تعذر تحميل المواعيد.");
-    return { status: "completed", result: { action: "booking_list", bookings: data ?? [] }, reply: `لديك ${data?.length ?? 0} موعدًا في قائمة المواعيد القادمة المعروضة.` };
+    const searchTerm = message.match(/(?:مواعيد|موعد)\s+(?:العميل|لـ|ل)\s*(.+)$/i)?.[1]?.trim();
+    const filtered = searchTerm ? (data ?? []).filter(b => {
+      const customer = Array.isArray(b.customers) ? b.customers[0] : b.customers;
+      return b.title.toLocaleLowerCase("ar").includes(searchTerm.toLocaleLowerCase("ar")) || (customer?.name ?? "").toLocaleLowerCase("ar").includes(searchTerm.toLocaleLowerCase("ar"));
+    }) : (data ?? []);
+    const lines = filtered.slice(0, 20).map(b => `${b.title} — ${new Date(b.starts_at).toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })} — ${b.status}`).join("\n");
+    return { status: "completed", result: { action: searchTerm ? "customer_booking_lookup" : "booking_list", query: searchTerm ?? null, bookings: filtered }, reply: `${searchTerm ? `مواعيد ${searchTerm}: ` : "المواعيد القادمة: "}${filtered.length} موعد.\n${lines || "لا توجد مواعيد مطابقة."}` };
   }
 
   if (agent === "Echo") {
