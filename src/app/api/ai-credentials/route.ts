@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { decryptCredential, encryptCredential } from "@/lib/ai/credentials";
+import { GeminiApiError, verifyGeminiApiKey } from "@/lib/ai/gemini";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,14 +31,14 @@ export async function POST(request: Request) {
   const apiKey = typeof body?.apiKey === "string" ? body.apiKey.trim() : "";
   if (apiKey.length < 20 || apiKey.length > 300) return NextResponse.json({ error: "مفتاح Gemini غير صالح." }, { status: 400 });
 
-  const verify = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-    body: JSON.stringify({ contents: [{ parts: [{ text: "Reply with exactly: OK" }] }], generationConfig: { maxOutputTokens: 8, temperature: 0 } }),
-    cache: "no-store",
-    signal: AbortSignal.timeout(15000)
-  }).catch(() => null);
-  if (!verify?.ok) return NextResponse.json({ error: "تعذر التحقق من المفتاح. راجع صحته وصلاحية Gemini API." }, { status: 400 });
+  try {
+    await verifyGeminiApiKey(apiKey);
+  } catch (error) {
+    if (error instanceof GeminiApiError) {
+      return NextResponse.json({ error: error.message, code: error.providerStatus || "GEMINI_VERIFICATION_FAILED" }, { status: error.httpStatus });
+    }
+    return NextResponse.json({ error: "حدث خطأ غير متوقع أثناء اختبار الاتصال بـGemini." }, { status: 502 });
+  }
 
   let encrypted: string;
   try { encrypted = encryptCredential(apiKey); }
