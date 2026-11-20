@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { classifyAstroAgent, getAIProviderName } from "@/lib/ai/provider";
+import { getUserGeminiKey } from "@/lib/ai/credentials";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -205,7 +206,7 @@ export async function POST(request: Request) {
   if (rateError) return fail("تعذر التحقق من معدل الطلبات. حاول مرة أخرى.", 503);
   if ((recentTasks ?? 0) >= 20) return fail("وصلت للحد المؤقت: 20 مهمة في الدقيقة. انتظر قليلًا ثم حاول.", 429);
 
-  const route = await routeAgent(message);
+  let geminiKey: string | null = null;\n  try { geminiKey = await getUserGeminiKey(supabase, user.id); }\n  catch (error) { console.error("[astro] Could not load user Gemini credential", error); }\n  const route = await routeAgent(message, geminiKey, typeof rawAgent === "string" ? rawAgent as Agent : undefined);
   const agent = route.agent;
   const { data: task, error: taskError } = await supabase.from("agent_tasks").insert({
     organization_id: org.id, requested_by: user.id, agent_name: agent,
