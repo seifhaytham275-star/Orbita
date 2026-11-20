@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { classifyAstroAgent, getAIProviderName } from "@/lib/ai/provider";
-import { getUserGeminiKey } from "@/lib/ai/credentials";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,16 +63,9 @@ function pickAgent(message: string): Agent {
   return routing.find(item => item.keywords.some(keyword => normalized.includes(keyword)))?.agent ?? "Insight";
 }
 
-async function routeAgent(message: string, geminiKey: string | null, selectedAgent?: Agent): Promise<{ agent: Agent; mode: "ai" | "keyword_fallback"; provider: string }> {
-  if (selectedAgent) return { agent: selectedAgent, mode: "keyword_fallback", provider: "user-selected-agent" };
-  try {
-    const classified = await classifyAstroAgent(message, geminiKey);
-    if (classified) return { agent: classified.agent, mode: "ai", provider: classified.provider };
-  } catch (error) {
-    // Keep the deterministic fallback available, but make the degraded mode visible to callers.
-    console.error("[astro] AI routing failed; using keyword fallback", error);
-  }
-  return { agent: pickAgent(message), mode: "keyword_fallback", provider: getAIProviderName() };
+async function routeAgent(message: string, selectedAgent?: Agent): Promise<{ agent: Agent; mode: "local_rules"; provider: "orbita-local" }> {
+  if (selectedAgent) return { agent: selectedAgent, mode: "local_rules", provider: "orbita-local" };
+  return { agent: pickAgent(message), mode: "local_rules", provider: "orbita-local" };
 }
 
 async function executeAgent(
@@ -185,7 +176,7 @@ export async function GET() {
   const { data: tasks, error } = await supabase.from("agent_tasks").select("id,agent_name,title,status,result,created_at")
     .eq("organization_id", org.id).order("created_at", { ascending: false }).limit(25);
   if (error) return fail("تعذر تحميل سجل المهام.", 503);
-  return NextResponse.json({ tasks: tasks ?? [], intelligence: { mode: getAIProviderName() === "not-configured" ? "keyword_fallback" : "ai_ready", provider: getAIProviderName() } });
+  return NextResponse.json({ tasks: tasks ?? [], intelligence: { mode: "local_rules", provider: "orbita-local" } });
 }
 
 export async function POST(request: Request) {
@@ -211,10 +202,7 @@ export async function POST(request: Request) {
   if (rateError) return fail("تعذر التحقق من معدل الطلبات. حاول مرة أخرى.", 503);
   if ((recentTasks ?? 0) >= 20) return fail("وصلت للحد المؤقت: 20 مهمة في الدقيقة. انتظر قليلًا ثم حاول.", 429);
 
-  let geminiKey: string | null = null;
-  try { geminiKey = await getUserGeminiKey(supabase, user.id); }
-  catch (error) { console.error("[astro] Could not load user Gemini credential", error); }
-  const route = await routeAgent(message, geminiKey, typeof rawAgent === "string" ? rawAgent as Agent : undefined);
+  const route = await routeAgent(message, typeof rawAgent === "string" ? rawAgent as Agent : undefined);
   const agent = route.agent;
   const { data: task, error: taskError } = await supabase.from("agent_tasks").insert({
     organization_id: org.id, requested_by: user.id, agent_name: agent,
