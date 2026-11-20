@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { classifyAstroAgent, getAIProviderName } from "@/lib/ai/provider";
+import { getUserGeminiKey } from "@/lib/ai/credentials";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,9 +65,10 @@ function pickAgent(message: string): Agent {
   return routing.find(item => item.keywords.some(keyword => normalized.includes(keyword)))?.agent ?? "Insight";
 }
 
-async function routeAgent(message: string): Promise<{ agent: Agent; mode: "ai" | "keyword_fallback"; provider: string }> {
+async function routeAgent(message: string, geminiKey: string | null, selectedAgent?: Agent): Promise<{ agent: Agent; mode: "ai" | "keyword_fallback"; provider: string }> {
+  if (selectedAgent) return { agent: selectedAgent, mode: "keyword_fallback", provider: "user-selected-agent" };
   try {
-    const classified = await classifyAstroAgent(message);
+    const classified = await classifyAstroAgent(message, geminiKey);
     if (classified) return { agent: classified.agent, mode: "ai", provider: classified.provider };
   } catch (error) {
     // Keep the deterministic fallback available, but make the degraded mode visible to callers.
@@ -193,6 +195,10 @@ export async function POST(request: Request) {
   const body: unknown = await request.json().catch(() => null);
   const rawMessage = body && typeof body === "object" && !Array.isArray(body) && "message" in body
     ? (body as { message?: unknown }).message : undefined;
+  const rawAgent = body && typeof body === "object" && !Array.isArray(body) && "agent" in body
+    ? (body as { agent?: unknown }).agent : undefined;
+  const allowedAgents: Agent[] = ["Ledger", "Echo", "Pulse", "Stock", "Reach", "Insight"];
+  if (rawAgent !== undefined && rawAgent !== null && (typeof rawAgent !== "string" || !allowedAgents.includes(rawAgent as Agent))) return fail("الوكيل المحدد غير صالح.");
   const message = typeof rawMessage === "string" ? rawMessage.trim() : "";
   if (!message || message.length > 1200) return fail("اكتب مهمة واضحة (حتى 1200 حرف).");
   const org = await getContext(supabase, user.id);
@@ -205,7 +211,10 @@ export async function POST(request: Request) {
   if (rateError) return fail("تعذر التحقق من معدل الطلبات. حاول مرة أخرى.", 503);
   if ((recentTasks ?? 0) >= 20) return fail("وصلت للحد المؤقت: 20 مهمة في الدقيقة. انتظر قليلًا ثم حاول.", 429);
 
-  const route = await routeAgent(message);
+  let geminiKey: string | null = null;
+  try { geminiKey = await getUserGeminiKey(supabase, user.id); }
+  catch (error) { console.error("[astro] Could not load user Gemini credential", error); }
+  const route = await routeAgent(message, geminiKey, typeof rawAgent === "string" ? rawAgent as Agent : undefined);
   const agent = route.agent;
   const { data: task, error: taskError } = await supabase.from("agent_tasks").insert({
     organization_id: org.id, requested_by: user.id, agent_name: agent,

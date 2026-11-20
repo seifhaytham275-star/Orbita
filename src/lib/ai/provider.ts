@@ -1,13 +1,7 @@
 export type AIMessage = { role: "system" | "user" | "assistant"; content: string };
 export type AIResult = { text: string; provider: string };
-
 export type AstroAgent = "Ledger" | "Echo" | "Pulse" | "Stock" | "Reach" | "Insight";
-
 const allowedAgents: AstroAgent[] = ["Ledger", "Echo", "Pulse", "Stock", "Reach", "Insight"];
-
-export interface AIProvider {
-  generate(messages: AIMessage[]): Promise<AIResult>;
-}
 
 function getGatewayConfig() {
   const apiKey = process.env.AI_GATEWAY_API_KEY || process.env.AI_API_KEY;
@@ -15,76 +9,57 @@ function getGatewayConfig() {
   const baseUrl = (process.env.AI_BASE_URL || "https://ai-gateway.vercel.sh/v1").replace(/\/$/, "");
   return { apiKey, model, baseUrl };
 }
-
 export function getAIProviderName(): string {
   const { apiKey, model } = getGatewayConfig();
   return apiKey && model ? "vercel-ai-gateway" : "not-configured";
 }
-
-export function isAIConfigured(): boolean {
-  return getAIProviderName() !== "not-configured";
-}
-
 export async function generateWithAI(messages: AIMessage[]): Promise<AIResult | null> {
   const { apiKey, model, baseUrl } = getGatewayConfig();
   if (!apiKey || !model) return null;
-
   const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: 0.1,
-      max_tokens: 180
-    }),
-    signal: AbortSignal.timeout(12000),
-    cache: "no-store"
+    method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model, messages, temperature: 0.1, max_tokens: 180 }),
+    signal: AbortSignal.timeout(12000), cache: "no-store"
   });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(`AI provider request failed (${response.status}): ${detail.slice(0, 240)}`);
-  }
-
-  const payload = await response.json() as {
-    choices?: Array<{ message?: { content?: string | null } }>;
-    model?: string;
-  };
+  if (!response.ok) throw new Error(`AI provider request failed (${response.status}).`);
+  const payload = await response.json() as { choices?: Array<{ message?: { content?: string | null } }>; model?: string };
   const text = payload.choices?.[0]?.message?.content?.trim();
   if (!text) throw new Error("AI provider returned an empty response.");
-  return { text, provider: payload.model || model };
+  return { text, provider: payload.model || model! };
 }
-
-export async function classifyAstroAgent(message: string): Promise<{ agent: AstroAgent; provider: string } | null> {
-  const result = await generateWithAI([
-    {
-      role: "system",
-      content: [
-        "You are Astro, the routing intelligence for an Egyptian business operations platform.",
-        "Classify the user's request into exactly one specialist agent.",
-        "Return only valid JSON with shape {\"agent\":\"Ledger|Echo|Pulse|Stock|Reach|Insight\"}.",
-        "Ledger handles invoices, accounting, payments and expenses.",
-        "Echo handles customers, customer service, orders and communications.",
-        "Pulse handles appointments, bookings, reminders and scheduling.",
-        "Stock handles products, inventory, quantities and stock movements.",
-        "Reach handles marketing, advertising, campaigns and content.",
-        "Insight handles analytics, reports, summaries and general business questions.",
-        "Do not claim an action was performed. This is routing only."
-      ].join(" ")
-    },
-    { role: "user", content: message.slice(0, 1200) }
-  ]);
-
-  if (!result) return null;
-  const json = result.text.match(/\{[\s\S]*\}/)?.[0];
+export async function classifyAstroAgent(message: string, geminiApiKey?: string | null): Promise<{ agent: AstroAgent; provider: string } | null> {
+  const instructions = [
+    "You are Astro, the routing intelligence for an Egyptian business operations platform.",
+    "Classify the user's request into exactly one specialist agent.",
+    "Return only JSON: {\"agent\":\"Ledger|Echo|Pulse|Stock|Reach|Insight\"}.",
+    "Ledger handles invoices, accounting, payments and expenses.",
+    "Echo handles customers, customer service, orders and communications.",
+    "Pulse handles appointments, bookings, reminders and scheduling.",
+    "Stock handles products, inventory, quantities and stock movements.",
+    "Reach handles marketing, advertising, campaigns and content.",
+    "Insight handles analytics, reports, summaries and general business questions.",
+    "Do not claim an action was performed. This is routing only."
+  ].join(" ");
+  let text = "";
+  let provider = "";
+  if (geminiApiKey) {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
+      method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": geminiApiKey },
+      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: instructions + "\n\nUser request: " + message.slice(0, 1200) }] }], generationConfig: { temperature: 0, maxOutputTokens: 80, responseMimeType: "application/json" } }),
+      signal: AbortSignal.timeout(12000), cache: "no-store"
+    });
+    if (!response.ok) throw new Error("Gemini routing request failed.");
+    const payload = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+    text = payload.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("").trim() || "";
+    provider = "gemini-2.5-flash";
+  } else {
+    const result = await generateWithAI([{ role: "system", content: instructions }, { role: "user", content: message.slice(0, 1200) }]);
+    if (!result) return null;
+    text = result.text; provider = result.provider;
+  }
+  const json = text.match(/\{[\s\S]*\}/)?.[0];
   if (!json) throw new Error("Astro could not read the AI routing response.");
   const parsed = JSON.parse(json) as { agent?: unknown };
-  if (typeof parsed.agent !== "string" || !allowedAgents.includes(parsed.agent as AstroAgent)) {
-    throw new Error("Astro received an unsupported agent route.");
-  }
-  return { agent: parsed.agent as AstroAgent, provider: result.provider };
+  if (typeof parsed.agent !== "string" || !allowedAgents.includes(parsed.agent as AstroAgent)) throw new Error("Astro received an unsupported agent route.");
+  return { agent: parsed.agent as AstroAgent, provider };
 }
