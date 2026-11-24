@@ -3,6 +3,8 @@ import Link from "next/link";
 import AstroWorkspace from "./astro-workspace";
 import OperationsWorkspace from "./operations-workspace";
 import ApprovalsWorkspace from "./approvals-workspace";
+import DashSubnav from "./dash-subnav";
+import { Icon } from "@/components/icons";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function DashboardPage() {
@@ -22,11 +24,12 @@ export default async function DashboardPage() {
   const activeOrgId = memberships?.[0]?.organization_id ?? null;
   return <main className="dashboard-shell">
     <header className="dash-top"><Link href="/" className="auth-brand">ORBITA</Link><div className="dash-header-actions"><Link href="/dashboard/settings" className="settings-header-link">الإعدادات</Link><form action={signOut}><button className="signout">تسجيل الخروج</button></form></div></header>
-    <section className="dash-welcome"><p className="eyebrow">YOUR WORKSPACE</p><h1>أهلًا {profile?.display_name || user.email}</h1><p>دي مساحة عملك. من هنا تتابع شركتك والمهام التي يوجّهها Astro إلى الوكلاء المتخصصين.</p></section>
+    <DashSubnav />
+    <section id="overview" className="dash-welcome dash-anchor"><p className="eyebrow">Your workspace</p><h1>أهلًا {profile?.display_name || user.email}</h1><p>دي مساحة عملك. من هنا تتابع شركتك والمهام التي يوجّهها Astro إلى الوكلاء المتخصصين.</p></section>
     <section className="dash-grid">
-      <article><span className="dash-icon" aria-hidden="true">◈</span><div><span>نوع الحساب</span><strong>{profile?.platform_role === "admin" ? "مدير المنصة" : "عميل"}</strong></div></article>
-      <article><span className="dash-icon" aria-hidden="true">▦</span><div><span>الشركات المرتبطة</span><strong>{memberships?.length ?? 0}</strong></div></article>
-      <article><span className="dash-icon" aria-hidden="true">✉</span><div><span>البريد الإلكتروني</span><strong className="email-value">{user.email}</strong></div></article>
+      <article><span className="dash-icon"><Icon name="user" /></span><div><span>نوع الحساب</span><strong>{profile?.platform_role === "admin" ? "مدير المنصة" : "عميل"}</strong></div></article>
+      <article><span className="dash-icon"><Icon name="building" /></span><div><span>الشركات المرتبطة</span><strong>{memberships?.length ?? 0}</strong></div></article>
+      <article><span className="dash-icon"><Icon name="mail" /></span><div><span>البريد الإلكتروني</span><strong className="email-value">{user.email}</strong></div></article>
     </section>
     <section className="dash-panel">
       <div className="panel-title-row"><h2>شركاتك</h2><Link href="/dashboard/billing" className="panel-link">إدارة الباقة والدفع عبر InstaPay</Link></div>
@@ -51,9 +54,9 @@ export default async function DashboardPage() {
       })}</div> : <p>لم تظهر مساحة الشركة المرتبطة بحسابك بعد. حدّث الصفحة بعد لحظات، وإذا استمرت المشكلة تواصل مع الدعم.</p>}
     </section>
     {profile?.platform_role === "admin" && <p className="admin-link"><Link href="/admin" className="panel-link">فتح لوحة إدارة الشركات</Link></p>}
-    <OperationsWorkspace organizationId={activeOrgId} />
-    <AstroWorkspace organizationId={activeOrgId} />
-    <ApprovalsWorkspace />
+    <div id="operations" className="dash-anchor"><OperationsWorkspace organizationId={activeOrgId} /></div>
+    <div id="astro" className="dash-anchor"><AstroWorkspace organizationId={activeOrgId} /></div>
+    <div id="approvals" className="dash-anchor"><ApprovalsWorkspace /></div>
     <p className="dash-note">نسخة تأسيسية: لا تستخدمها لمعالجة مدفوعات أو بيانات عملاء حقيقية قبل استكمال الإعداد واختبارات الأمان.</p>
   </main>;
 }

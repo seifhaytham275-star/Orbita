@@ -1,12 +1,13 @@
 import Link from "next/link";
+import { Icon, type IconName } from "@/components/icons";
 
-const agents = [
-  { name: "Orbita Ledger", description: "الفواتير والحسابات", icon: "▤" },
-  { name: "Orbita Echo", description: "خدمة العملاء والطلبات", icon: "◐" },
-  { name: "Orbita Pulse", description: "الحجوزات والتذكيرات", icon: "◷" },
-  { name: "Orbita Stock", description: "المخزون والمشتريات", icon: "▦" },
-  { name: "Orbita Reach", description: "المحتوى والتسويق", icon: "✦" },
-  { name: "Orbita Insight", description: "التقارير والتحليلات", icon: "◎" }
+const agents: { name: string; description: string; icon: IconName }[] = [
+  { name: "Orbita Ledger", description: "الفواتير والحسابات", icon: "ledger" },
+  { name: "Orbita Echo", description: "خدمة العملاء والطلبات", icon: "echo" },
+  { name: "Orbita Pulse", description: "الحجوزات والتذكيرات", icon: "pulse" },
+  { name: "Orbita Stock", description: "المخزون والمشتريات", icon: "stock" },
+  { name: "Orbita Reach", description: "المحتوى والتسويق", icon: "reach" },
+  { name: "Orbita Insight", description: "التقارير والتحليلات", icon: "insight" }
 ];
 
 const highlights = [
@@ -26,7 +27,7 @@ export default function Home() {
   return (
     <main className="shell">
       <header className="topbar">
-        <div className="brand"><span className="brand-mark">O</span><span>ORBITA</span></div>
+        <Link href="/" className="brand"><span className="brand-mark">O</span><span>ORBITA</span></Link>
         <nav className="home-nav">
           <Link href="/pricing">الخطة المجانية</Link>
           <Link href="/login">تسجيل الدخول</Link>
@@ -34,16 +35,35 @@ export default function Home() {
         </nav>
       </header>
 
-      <section className="hero">
-        <p className="eyebrow">YOUR BUSINESS, IN ORBIT</p>
-        <h1>إدارة شغلك، <span>بذكاء.</span></h1>
-        <p className="intro">مساحة واحدة تساعدك تدير عمليات شركتك، وتتابع التفاصيل من غير ما تتوه بين أدوات كتير.</p>
-        <div className="actions">
-          <Link className="primary" href="/signup">ابدأ مجانًا لمدة شهر واحد</Link>
-          <Link className="secondary" href="/preview">شاهد جولة تعريفية</Link>
+      <div className="hero-grid">
+        <section className="hero">
+          <p className="eyebrow">Business workspace</p>
+          <h1>إدارة شغلك، <span>بذكاء.</span></h1>
+          <p className="intro">مساحة واحدة تساعدك تدير عمليات شركتك، وتتابع التفاصيل من غير ما تتوه بين أدوات كتير.</p>
+          <div className="actions">
+            <Link className="primary" href="/signup">ابدأ مجانًا لمدة شهر واحد</Link>
+            <Link className="secondary" href="/preview">شاهد جولة تعريفية</Link>
+          </div>
+          <p className="device-note">حساب واحد يعمل من الموبايل واللابتوب، بنفس بيانات الدخول. لا بطاقة بنكية ولا تجديد تلقائي.</p>
+        </section>
+
+        <div className="preview-card" aria-hidden="true">
+          <div className="pv-bar"><i /><i /><i /><span>ORBITA WORKSPACE</span></div>
+          <div className="pv-body">
+            <div className="pv-stats">
+              <div className="pv-stat"><b /><i /></div>
+              <div className="pv-stat"><b /><i /></div>
+              <div className="pv-stat"><b /><i /></div>
+            </div>
+            <div className="pv-rows">
+              <div className="pv-row"><em /><b /><b /></div>
+              <div className="pv-row"><em /><b /><b /></div>
+              <div className="pv-row"><em /><b /><b /></div>
+            </div>
+            <div className="pv-chat"><small>ASTRO</small>اكتب طلبك وأنا أوجّهه للوكيل المناسب.</div>
+          </div>
         </div>
-        <p className="device-note">حساب واحد يعمل من الموبايل واللابتوب، بنفس بيانات الدخول. لا بطاقة بنكية ولا تجديد تلقائي.</p>
-      </section>
+      </div>
 
       <section className="stat-strip" aria-label="مميزات سريعة">
         {highlights.map((item) => (
@@ -53,15 +73,15 @@ export default function Home() {
 
       <section id="agents" className="section">
         <div className="section-heading">
-          <div><p className="eyebrow">THE ORBITA SUITE</p><h2>ستة وكلاء. مساحة واحدة.</h2></div>
+          <div><p className="eyebrow">The Orbita suite</p><h2>ستة وكلاء. مساحة واحدة.</h2></div>
           <span className="count">06 MODULES</span>
         </div>
         <div className="agent-grid">
           {agents.map((agent, index) => (
             <article className="agent-card" key={agent.name}>
               <div className="agent-top">
-                <span className="agent-icon" aria-hidden="true">{agent.icon}</span>
-                <span className="arrow" aria-hidden="true">↗</span>
+                <span className="agent-icon"><Icon name={agent.icon} /></span>
+                <span className="arrow"><Icon name="arrow" size={18} /></span>
               </div>
               <h3>{agent.name}</h3>
               <p>{agent.description}</p>
@@ -73,12 +93,12 @@ export default function Home() {
 
       <section className="section">
         <div className="section-heading">
-          <div><p className="eyebrow">HOW IT WORKS</p><h2>ابدأ في ثلاث خطوات.</h2></div>
+          <div><p className="eyebrow">How it works</p><h2>ابدأ في ثلاث خطوات.</h2></div>
         </div>
         <div className="steps-grid">
           {steps.map((step, index) => (
             <article className="step-card" key={step.title}>
-              <span className="step-num" aria-hidden="true">0{index + 1}</span>
+              <span className="step-num">{index + 1}</span>
               <h3>{step.title}</h3>
               <p>{step.text}</p>
             </article>
@@ -88,7 +108,7 @@ export default function Home() {
 
       <section className="pricing-teaser">
         <div>
-          <p className="eyebrow">FREE LAUNCH</p>
+          <p className="eyebrow">Free launch</p>
           <h2>ابدأ من غير تكلفة.</h2>
           <p>شهر واحد وصول مجاني خلال مرحلة الإطلاق، بدون إدخال وسيلة دفع أو خصم تلقائي.</p>
         </div>
