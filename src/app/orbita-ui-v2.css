@@ -1,0 +1,120 @@
+/* ORBITA UI v2 — additive style layer.
+   Import AFTER globals.css (see layout.tsx). Keeps the existing identity:
+   dark navy + mint accent + Cairo. Works with the existing light theme. */
+
+::selection{background:#7ce0c34d;color:var(--text)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+html{-webkit-text-size-adjust:100%}
+body{min-height:100vh;-webkit-font-smoothing:antialiased}
+*{scrollbar-width:thin;scrollbar-color:#2c3f5c transparent}
+a,button{transition:background-color .18s,border-color .18s,color .18s,transform .18s,box-shadow .18s}
+button:not(:disabled):active,.actions a:active,.plan-cta:active{transform:translateY(1px)}
+
+/* ---------- Top bar ---------- */
+.topbar{position:sticky;top:0;z-index:20;background:#080d18b8;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.home-nav a{padding:7px 12px;border-radius:9px}
+.home-nav a:hover{background:#ffffff0d}
+.home-nav a:last-child{background:var(--accent);color:#071510}
+.home-nav a:last-child:hover{box-shadow:0 6px 22px #7ce0c33d}
+
+/* ---------- Hero ---------- */
+.hero{position:relative;isolation:isolate}
+.hero:before,.hero:after{content:"";position:absolute;border-radius:50%;pointer-events:none;z-index:-1}
+.hero:before{inset-inline-end:-140px;top:30px;width:430px;height:430px;border:1px dashed #7ce0c340;box-shadow:inset 0 0 90px #7ce0c312;animation:orbit 60s linear infinite}
+.hero:after{inset-inline-end:10px;top:150px;width:150px;height:150px;background:radial-gradient(circle at 35% 30%,#7ce0c366,#7ce0c300 70%);filter:blur(2px)}
+.hero h1 span{background:linear-gradient(90deg,#7ce0c3,#7cb8f0);-webkit-background-clip:text;background-clip:text;color:transparent}
+.actions a{display:inline-flex;align-items:center;gap:8px}
+.primary{box-shadow:0 8px 28px #7ce0c32e}
+.primary:hover{box-shadow:0 10px 34px #7ce0c34d;transform:translateY(-1px)}
+.secondary:hover{border-color:var(--accent);color:var(--accent)}
+.device-note{max-width:560px;line-height:1.9}
+@keyframes orbit{to{transform:rotate(360deg)}}
+
+/* ---------- Stat strip ---------- */
+.stat-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin:0 0 70px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--line)}
+.stat-strip div{padding:20px 22px;background:var(--panel)}
+.stat-strip strong{display:block;font-size:26px;color:var(--accent);line-height:1.3}
+.stat-strip span{display:block;margin-top:4px;font-size:12px;color:var(--muted)}
+
+/* ---------- Agent cards ---------- */
+.agent-card{display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.agent-card:before{content:"";position:absolute;inset:0 0 auto;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0;transition:opacity .2s}
+.agent-card:hover{transform:translateY(-4px);border-color:#7ce0c366;box-shadow:0 18px 44px #0000004d}
+.agent-card:hover:before{opacity:1}
+.agent-card{transition:transform .2s,border-color .2s,box-shadow .2s}
+.agent-top{display:flex;align-items:center;justify-content:space-between}
+.agent-icon{width:40px;height:40px;display:grid;place-items:center;border:1px solid #7ce0c344;border-radius:12px;background:#7ce0c30f;color:var(--accent);font-size:19px}
+.agent-card .arrow{position:static;font-size:18px;opacity:.6;transition:transform .2s,opacity .2s}
+.agent-card:hover .arrow{opacity:1;transform:translate(-3px,-3px)}
+.agent-card h3{margin-top:12px}
+
+/* ---------- How it works ---------- */
+.steps-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.step-card{position:relative;padding:24px;border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
+.step-num{position:absolute;inset-inline-end:16px;top:4px;font-size:64px;font-weight:800;line-height:1;color:var(--accent);opacity:.1}
+.step-card h3{margin:0 0 8px;font-size:18px}
+.step-card p{margin:0;color:var(--muted);font-size:13px;line-height:1.9}
+
+/* ---------- Pricing teaser / footer ---------- */
+.pricing-teaser{background:linear-gradient(135deg,#101a2b,#0f2a2b);border-color:#2a4f4a}
+.pricing-teaser a:hover{border-color:var(--accent);color:var(--accent)}
+footer{border-top:1px solid #ffffff10;margin-top:40px;padding-top:26px}
+
+/* ---------- Auth ---------- */
+.auth-shell{background:radial-gradient(ellipse at 50% 0%,#15294166 0%,transparent 60%)}
+.auth-form input:focus,.auth-form select:focus{outline:2px solid #7ce0c355;border-color:var(--accent)}
+.auth-form button:not(:disabled):hover,.signout:hover{filter:brightness(1.08);box-shadow:0 6px 20px #7ce0c333}
+
+/* ---------- Dashboard ---------- */
+.dash-top{position:sticky;top:0;z-index:20;margin:-25px -22px 0;padding:18px 22px;background:#080d18c7;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.dash-welcome{position:relative;margin-top:26px;padding:34px 30px;border:1px solid #2a4f4a;border-radius:20px;background:linear-gradient(135deg,#132139,#0f2a2b);overflow:hidden}
+.dash-welcome:after{content:"";position:absolute;inset-inline-end:-60px;top:-60px;width:220px;height:220px;border-radius:50%;border:1px dashed #7ce0c340;pointer-events:none}
+.dash-welcome h1{position:relative}
+.dash-welcome p:last-child{margin-bottom:0;max-width:640px}
+.dash-grid{margin-top:16px}
+.dash-grid article{display:flex;gap:14px;align-items:center;transition:border-color .2s,transform .2s}
+.dash-grid article:hover{border-color:#7ce0c355;transform:translateY(-2px)}
+.dash-icon{width:42px;height:42px;flex:none;display:grid;place-items:center;border-radius:12px;background:#7ce0c312;border:1px solid #7ce0c340;color:var(--accent);font-size:19px}
+.dash-grid article>div{min-width:0}
+.panel-title-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.panel-link{font-size:12px;color:var(--accent);text-decoration:none;border:1px solid #7ce0c344;border-radius:9px;padding:7px 12px}
+.panel-link:hover{background:#7ce0c314}
+.org-list{display:grid;gap:12px;margin-top:14px}
+.org-card{padding:16px;border:1px solid var(--line);border-radius:12px;background:#0b1423}
+.org-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.org-card-head strong{font-size:16px}
+.org-role,.org-badge{font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--line);color:var(--muted)}
+.org-badge.ok{border-color:#2d6a57;color:#b9f2dd;background:#16372f}
+.org-badge.off{border-color:#713a43;color:#ffd5d9;background:#48242b}
+.org-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px;margin-top:12px;font-size:12px;color:var(--muted);line-height:1.8}
+.org-meta b{display:block;font-size:10px;letter-spacing:.5px;color:#7d8da3;font-weight:600}
+.org-meta span{overflow-wrap:anywhere;color:var(--text)}
+.admin-link{margin-top:16px}
+
+/* ---------- Workspaces polish ---------- */
+.astro-main,.astro-sidebar,.ops-shell,.settings-panel,.settings-sidebar{box-shadow:0 18px 50px #0000002e}
+.astro-nav-main:hover,.astro-nav-agent:hover,.settings-nav-item:hover{background:#ffffff0a}
+.ops-tabs button:hover,.ops-refresh:hover,.ops-inline button:hover{border-color:var(--accent)}
+.ops-form>button:hover,.astro-composer button:not(:disabled):hover,.settings-form button:not(:disabled):hover{filter:brightness(1.08)}
+.astro-bubble,.astro-message{animation:rise .22s ease-out}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- Light theme for new pieces ---------- */
+:root[data-theme="light"] .topbar,:root[data-theme="light"] .dash-top{background:#f3f6fbcc}
+:root[data-theme="light"] .home-nav a:hover{background:#0000000a}
+:root[data-theme="light"] .home-nav a:last-child{background:var(--accent);color:#fff}
+:root[data-theme="light"] .stat-strip div,:root[data-theme="light"] .step-card{background:#fff}
+:root[data-theme="light"] .pricing-teaser{background:linear-gradient(135deg,#fff,#e9f7f2);border-color:#bfe3d8}
+:root[data-theme="light"] .dash-welcome{background:linear-gradient(135deg,#fff,#e9f7f2);border-color:#bfe3d8}
+:root[data-theme="light"] .org-card{background:#f8fafc}
+:root[data-theme="light"] .org-badge.ok{background:#e8f7f1;color:#17634e;border-color:#a7d9cb}
+:root[data-theme="light"] .org-badge.off{background:#fff0f1;color:#9b2734;border-color:#f0c2c7}
+:root[data-theme="light"] .agent-card:hover{box-shadow:0 18px 44px #1f2f4a1f}
+:root[data-theme="light"] .primary{color:#fff;background:#087f68;box-shadow:0 8px 24px #087f6833}
+
+/* ---------- Responsive ---------- */
+@media(max-width:900px){.steps-grid{grid-template-columns:1fr}.stat-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.hero:before{width:280px;height:280px;inset-inline-end:-120px;opacity:.7}.hero:after{display:none}.org-meta{grid-template-columns:1fr}.dash-welcome{padding:24px 20px}.dash-top{margin:-18px -18px 0;padding:14px 18px}}
+@media(max-width:430px){.stat-strip strong{font-size:21px}.stat-strip div{padding:15px}.home-nav a{padding:6px 8px}}
+
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}

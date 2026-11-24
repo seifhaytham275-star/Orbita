@@ -24,24 +24,33 @@ export default async function DashboardPage() {
     <header className="dash-top"><Link href="/" className="auth-brand">ORBITA</Link><div className="dash-header-actions"><Link href="/dashboard/settings" className="settings-header-link">الإعدادات</Link><form action={signOut}><button className="signout">تسجيل الخروج</button></form></div></header>
     <section className="dash-welcome"><p className="eyebrow">YOUR WORKSPACE</p><h1>أهلًا {profile?.display_name || user.email}</h1><p>دي مساحة عملك. من هنا تتابع شركتك والمهام التي يوجّهها Astro إلى الوكلاء المتخصصين.</p></section>
     <section className="dash-grid">
-      <article><span>نوع الحساب</span><strong>{profile?.platform_role === "admin" ? "مدير المنصة" : "عميل"}</strong></article>
-      <article><span>الشركات المرتبطة</span><strong>{memberships?.length ?? 0}</strong></article>
-      <article><span>البريد الإلكتروني</span><strong className="email-value">{user.email}</strong></article>
+      <article><span className="dash-icon" aria-hidden="true">◈</span><div><span>نوع الحساب</span><strong>{profile?.platform_role === "admin" ? "مدير المنصة" : "عميل"}</strong></div></article>
+      <article><span className="dash-icon" aria-hidden="true">▦</span><div><span>الشركات المرتبطة</span><strong>{memberships?.length ?? 0}</strong></div></article>
+      <article><span className="dash-icon" aria-hidden="true">✉</span><div><span>البريد الإلكتروني</span><strong className="email-value">{user.email}</strong></div></article>
     </section>
-    <section className="dash-panel"><h2>شركاتك</h2><p><Link href="/dashboard/billing">إدارة الباقة والدفع عبر InstaPay</Link></p>{memberships?.length ? <ul>{memberships.map((m) => {
-      const organization = Array.isArray(m.organizations) ? m.organizations[0] : m.organizations;
-      const accessEndsAt = organization?.subscription_ends_at ?? organization?.trial_ends_at;
-      return <li key={m.organization_id}>
-        <strong>{organization?.name || "شركة"}</strong> — {m.role}<br/>
-        اسم المستخدم: {organization?.username || "سيظهر بعد تطبيق تحديث قاعدة البيانات"}<br/>
-        النشاط: {organization?.industry || "غير محدد"}<br/>
-        {["active", "trial"].includes(organization?.subscription_status || "") && accessEndsAt
-          ? `الوصول حتى ${new Date(accessEndsAt).toLocaleDateString("ar-EG")}`
-          : `حالة الحساب: ${organization?.subscription_status || "غير معروفة"}`}<br/>
-        {organization?.features_enabled ? "المميزات مفعّلة" : "المميزات موقوفة"}
-      </li>;
-    })}</ul> : <p>لم تظهر مساحة الشركة المرتبطة بحسابك بعد. حدّث الصفحة بعد لحظات، وإذا استمرت المشكلة تواصل مع الدعم.</p>}</section>
-    {profile?.platform_role === "admin" && <p><Link href="/admin">فتح لوحة إدارة الشركات</Link></p>}
+    <section className="dash-panel">
+      <div className="panel-title-row"><h2>شركاتك</h2><Link href="/dashboard/billing" className="panel-link">إدارة الباقة والدفع عبر InstaPay</Link></div>
+      {memberships?.length ? <div className="org-list">{memberships.map((m) => {
+        const organization = Array.isArray(m.organizations) ? m.organizations[0] : m.organizations;
+        const accessEndsAt = organization?.subscription_ends_at ?? organization?.trial_ends_at;
+        const accessActive = ["active", "trial"].includes(organization?.subscription_status || "") && accessEndsAt;
+        return <article className="org-card" key={m.organization_id}>
+          <div className="org-card-head">
+            <strong>{organization?.name || "شركة"}</strong>
+            <span className="org-role">{m.role}</span>
+          </div>
+          <div className="org-meta">
+            <div><b>اسم المستخدم</b><span>{organization?.username || "سيظهر بعد تطبيق تحديث قاعدة البيانات"}</span></div>
+            <div><b>النشاط</b><span>{organization?.industry || "غير محدد"}</span></div>
+            <div><b>حالة الوصول</b><span>{accessActive
+              ? `الوصول حتى ${new Date(accessEndsAt as string).toLocaleDateString("ar-EG")}`
+              : `حالة الحساب: ${organization?.subscription_status || "غير معروفة"}`}</span></div>
+            <div><b>المميزات</b><span className={organization?.features_enabled ? "org-badge ok" : "org-badge off"}>{organization?.features_enabled ? "المميزات مفعّلة" : "المميزات موقوفة"}</span></div>
+          </div>
+        </article>;
+      })}</div> : <p>لم تظهر مساحة الشركة المرتبطة بحسابك بعد. حدّث الصفحة بعد لحظات، وإذا استمرت المشكلة تواصل مع الدعم.</p>}
+    </section>
+    {profile?.platform_role === "admin" && <p className="admin-link"><Link href="/admin" className="panel-link">فتح لوحة إدارة الشركات</Link></p>}
     <OperationsWorkspace organizationId={activeOrgId} />
     <AstroWorkspace organizationId={activeOrgId} />
     <ApprovalsWorkspace />
