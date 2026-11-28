@@ -337,13 +337,18 @@ export async function POST(request: Request) {
     let finalReply = execution.reply;
     let provider = "orbita-local";
     if (["max", "business"].includes(org.planCode)) {
-      const generated = await generateWithOpenRouter(org.planCode, agent, message, execution.result);
-      if (generated) {
-        finalReply = generated.text;
-        provider = "openrouter:" + generated.model;
-        if (agent === "Studio") execution.result = { ...execution.result, generated_content: generated.text, generated_by: "openrouter", model: generated.model };
-      } else {
-        finalReply += "\\n\\nملاحظة: OpenRouter غير مضبوط في إعدادات الخادم؛ تم استخدام الرد المحلي.";
+      try {
+        const generated = await generateWithOpenRouter(org.planCode, agent, message, execution.result);
+        if (generated) {
+          finalReply = generated.text;
+          provider = "openrouter:" + generated.model;
+          if (agent === "Studio") execution.result = { ...execution.result, generated_content: generated.text, generated_by: "openrouter", model: generated.model };
+        } else {
+          finalReply += "\\n\\nملاحظة: OpenRouter غير مضبوط في إعدادات الخادم؛ تم استخدام الرد المحلي.";
+        }
+      } catch {
+        finalReply += "\\n\\nملاحظة: تعذر الاتصال بموديل OpenRouter؛ تم الاحتفاظ بنتيجة الوكيل المحلية.";
+        provider = "orbita-local-fallback";
       }
     }
     if (execution.status === "needs_approval") {
