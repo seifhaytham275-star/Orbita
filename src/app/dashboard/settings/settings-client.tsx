@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useOrbitaTheme, type OrbitaTheme } from "@/components/theme-provider";
 
-type Section = "account" | "appearance" | "security" | "preferences";
+type Section = "account" | "appearance" | "security" | "preferences" | "ai";
 
 export default function SettingsClient({
   initialName,
@@ -23,9 +23,13 @@ export default function SettingsClient({
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [notifications, setNotifications] = useState(true);
+  const [aiKeyConfigured, setAiKeyConfigured] = useState(false);
+  const [aiKey, setAiKey] = useState("");
+  const [aiKeyLoading, setAiKeyLoading] = useState(false);
 
   useEffect(() => {
     setNotifications(window.localStorage.getItem("orbita-notifications-v1") !== "off");
+    fetch("/api/settings/ai-key").then(r=>r.json()).then(d=>setAiKeyConfigured(Boolean(d.configured))).catch(()=>{});
   }, []);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -91,6 +95,28 @@ export default function SettingsClient({
     finally { setBusy(false); }
   }
 
+  async function saveAiKey(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setAiKeyLoading(true); feedback();
+    try {
+      const response = await fetch("/api/settings/ai-key", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: aiKey }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "تعذر حفظ مفتاح OpenRouter.");
+      setAiKey(""); setAiKeyConfigured(true); feedback("تم حفظ مفتاحك مشفرًا. لن تحتاج لإدخاله مرة أخرى.");
+    } catch (e) { feedback("", e instanceof Error ? e.message : "تعذر حفظ المفتاح."); }
+    finally { setAiKeyLoading(false); }
+  }
+
+  async function removeAiKey() {
+    setAiKeyLoading(true); feedback();
+    try {
+      const response = await fetch("/api/settings/ai-key", { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "تعذر حذف المفتاح.");
+      setAiKeyConfigured(false); setAiKey(""); feedback("تم حذف مفتاح OpenRouter من حسابك.");
+    } catch (e) { feedback("", e instanceof Error ? e.message : "تعذر حذف المفتاح."); }
+    finally { setAiKeyLoading(false); }
+  }
+
   function updateTheme(next: OrbitaTheme) {
     setTheme(next);
     feedback(next === "dark" ? "تم تفعيل المظهر الداكن." : "تم تفعيل المظهر الفاتح.");
@@ -106,7 +132,8 @@ export default function SettingsClient({
     { id: "account", label: "الحساب", detail: "الاسم والبريد الاحتياطي", icon: "◉" },
     { id: "appearance", label: "المظهر", detail: "الوضع الداكن والفاتح", icon: "◐" },
     { id: "security", label: "الأمان", detail: "كلمة المرور", icon: "◇" },
-    { id: "preferences", label: "التفضيلات", detail: "الإشعارات", icon: "⚙" }
+    { id: "preferences", label: "التفضيلات", detail: "الإشعارات", icon: "⚙" },
+    { id: "ai", label: "مفتاح الذكاء الاصطناعي", detail: "OpenRouter API", icon: "✦" }
   ];
 
   return <div className="settings-layout">
@@ -164,6 +191,16 @@ export default function SettingsClient({
           <button disabled={busy}>{busy ? "جارٍ تحديث كلمة المرور..." : "تغيير كلمة المرور"}</button>
         </form>
         <div className="settings-security-tip"><strong>نصيحة أمان</strong><p>لا تشارك كلمة المرور مع أي شخص، ولا تستخدم نفس كلمة المرور في مواقع أخرى.</p></div>
+      </div>}
+
+      {section === "ai" && <div className="settings-panel">
+        <div className="settings-panel-heading"><div><p className="eyebrow">PERSONAL AI PROVIDER</p><h2>مفتاح OpenRouter</h2><p>استخدم مفتاحك الشخصي لتشغيل نماذج الذكاء الاصطناعي في Orbita.</p></div><span className="settings-panel-mark">05</span></div>
+        {aiKeyConfigured ? <div className="settings-security-tip"><strong>✓ المفتاح محفوظ</strong><p>تم حفظ مفتاحك مشفرًا على حسابك. لن يظهر مرة أخرى ولن تحتاج لإدخاله عند كل استخدام.</p><button type="button" disabled={aiKeyLoading} onClick={removeAiKey}>{aiKeyLoading ? "جارٍ الحذف..." : "حذف المفتاح من حسابي"}</button></div> : <form className="settings-form" onSubmit={saveAiKey}>
+          <label>OpenRouter API Key<input type="password" value={aiKey} onChange={e=>setAiKey(e.target.value)} placeholder="sk-or-..." autoComplete="off" minLength={20} maxLength={500} required /></label>
+          <p className="settings-help">المفتاح لا يُرسل إلى المتصفح بعد الحفظ. يتم تشفيره على الخادم وربطه بحسابك. لا تشاركه مع أي شخص.</p>
+          <button disabled={aiKeyLoading || !aiKey.trim()}>{aiKeyLoading ? "جارٍ التشفير والحفظ..." : "حفظ المفتاح مرة واحدة"}</button>
+        </form>}
+        <p className="settings-footnote">مفتاحك يُستخدم فقط لطلبات نماذج OpenRouter التي يرسلها حسابك. استهلاك OpenRouter وفواتيره مسؤولية صاحب المفتاح.</p>
       </div>}
 
       {section === "preferences" && <div className="settings-panel">
