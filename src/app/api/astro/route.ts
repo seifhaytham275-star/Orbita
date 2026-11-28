@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type Agent = "Ledger" | "Echo" | "Pulse" | "Stock" | "Reach" | "Insight" | "Studio";
+type Agent = "Ledger" | "Echo" | "Pulse" | "Stock" | "Reach" | "Insight" | "Studio" | "Chatbot";
 type OrgContext = { id: string; name: string; industry: string; role: string; planCode: string };
 
 const routing: Array<{ agent: Agent; keywords: string[] }> = [
@@ -66,6 +66,36 @@ function pickAgent(message: string): Agent {
 async function routeAgent(message: string, selectedAgent?: Agent): Promise<{ agent: Agent; mode: "local_rules"; provider: "orbita-local" }> {
   if (selectedAgent) return { agent: selectedAgent, mode: "local_rules", provider: "orbita-local" };
   return { agent: pickAgent(message), mode: "local_rules", provider: "orbita-local" };
+}
+
+type OpenRouterReply = { choices?: Array<{ message?: { content?: string | Array<{ type?: string; text?: string }> } }> };
+async function generateWithOpenRouter(planCode: string, agent: Agent, userMessage: string, groundedResult: Record<string, unknown>): Promise<{ text: string; model: string } | null> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) return null;
+  const isBusiness = planCode === "business";
+  const model = (isBusiness ? process.env.OPENROUTER_BUSINESS_MODEL : process.env.OPENROUTER_MAX_MODEL)?.trim();
+  if (!model) return null;
+  const system = agent === "Studio"
+    ? "You are Orbita Studio, a professional social media creative producer. Create a useful Arabic creative package for the requested Post, Reel, or Story: hook, caption, scene/slide sequence, visual direction, and CTA. Return concise, actionable Arabic. Do not claim to create an actual image/video file or publish content."
+    : agent === "Chatbot"
+      ? "You are Orbita Business Chatbot, an assistant for this company's authorized workspace. Answer the user's question in Arabic using only the provided company facts. Do not invent financial, customer, inventory, or booking facts. If data is missing, say so. Never perform actions or claim to have done them."
+      : "You are Orbita's business operations AI. Explain the completed agent result clearly in Arabic. Treat the supplied result as the source of truth; do not invent values or claim any extra action. Keep all approvals and safety restrictions intact.";
+  const prompt = JSON.stringify({ user_request: userMessage, verified_agent_result: groundedResult });
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json", "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "https://orbita-seifhaytham275-star.vercel.app", "X-Title": "Orbita" },
+    body: JSON.stringify({ model, messages: [{ role: "system", content: system }, { role: "user", content: prompt.slice(0, 12000) }], temperature: 0.45, max_tokens: agent === "Studio" ? 700 : 500 }),
+    signal: AbortSignal.timeout(20000), cache: "no-store"
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error("OpenRouter تعذر عليه إكمال الطلب (" + response.status + "). تأكد من موديل الباقة ورصيد الحساب." + (detail ? "" : ""));
+  }
+  const data = await response.json() as OpenRouterReply;
+  const content = data.choices?.[0]?.message?.content;
+  const text = (typeof content === "string" ? content : Array.isArray(content) ? content.map(part => part.text || "").join("\\n") : "").trim();
+  if (!text) throw new Error("OpenRouter رجّع ردًا فارغًا. جرّب مرة أخرى.");
+  return { text: text.slice(0, 7000), model };
 }
 
 async function executeAgent(
@@ -265,7 +295,7 @@ export async function GET() {
   const { data: tasks, error } = await supabase.from("agent_tasks").select("id,agent_name,title,status,result,created_at")
     .eq("organization_id", org.id).order("created_at", { ascending: false }).limit(25);
   if (error) return fail("تعذر تحميل سجل المهام.", 503);
-  const availableAgents: Agent[] = org.planCode === "free" ? ["Insight", "Ledger"] : org.planCode === "pro" ? ["Insight", "Ledger", "Stock"] : ["Insight", "Ledger", "Stock", "Pulse", "Reach", "Echo", "Studio"];
+  const availableAgents: Agent[] = org.planCode === "free" ? ["Insight", "Ledger"] : org.planCode === "pro" ? ["Insight", "Ledger", "Stock"] : ["Insight", "Ledger", "Stock", "Pulse", "Reach", "Echo", "Studio", ...(org.planCode === "business" ? ["Chatbot" as Agent] : [])];
   return NextResponse.json({ tasks: tasks ?? [], planCode: org.planCode, availableAgents, features: { studio: ["max", "business"].includes(org.planCode), voice: org.planCode === "business", chatbot: org.planCode === "business", aiProvider: ["max", "business"].includes(org.planCode) ? "openrouter" : "local" }, intelligence: { mode: "local_rules", provider: "orbita-local" } });
 }
 
@@ -278,7 +308,7 @@ export async function POST(request: Request) {
     ? (body as { message?: unknown }).message : undefined;
   const rawAgent = body && typeof body === "object" && !Array.isArray(body) && "agent" in body
     ? (body as { agent?: unknown }).agent : undefined;
-  const allowedAgents: Agent[] = ["Ledger", "Echo", "Pulse", "Stock", "Reach", "Insight", "Studio"];
+  const allowedAgents: Agent[] = ["Ledger", "Echo", "Pulse", "Stock", "Reach", "Insight", "Studio", "Chatbot"];
   if (rawAgent !== undefined && rawAgent !== null && (typeof rawAgent !== "string" || !allowedAgents.includes(rawAgent as Agent))) return fail("الوكيل المحدد غير صالح.");
   const message = typeof rawMessage === "string" ? rawMessage.trim() : "";
   if (!message || message.length > 1200) return fail("اكتب مهمة واضحة (حتى 1200 حرف).");
@@ -294,7 +324,7 @@ export async function POST(request: Request) {
 
   const route = await routeAgent(message, typeof rawAgent === "string" ? rawAgent as Agent : undefined);
   const agent = route.agent;
-  const planAgents: Agent[] = org.planCode === "free" ? ["Insight", "Ledger"] : org.planCode === "pro" ? ["Insight", "Ledger", "Stock"] : ["Insight", "Ledger", "Stock", "Pulse", "Reach", "Echo", "Studio"];
+  const planAgents: Agent[] = org.planCode === "free" ? ["Insight", "Ledger"] : org.planCode === "pro" ? ["Insight", "Ledger", "Stock"] : ["Insight", "Ledger", "Stock", "Pulse", "Reach", "Echo", "Studio", ...(org.planCode === "business" ? ["Chatbot" as Agent] : [])];
   if (!planAgents.includes(agent)) return fail("الوكيل ده متاح في باقات أعلى. راجع صفحة الباقات.", 403);
   const { data: task, error: taskError } = await supabase.from("agent_tasks").insert({
     organization_id: org.id, requested_by: user.id, agent_name: agent,
@@ -304,6 +334,18 @@ export async function POST(request: Request) {
 
   try {
     const execution = await executeAgent(supabase, org, user.id, agent, message);
+    let finalReply = execution.reply;
+    let provider = "orbita-local";
+    if (["max", "business"].includes(org.planCode)) {
+      const generated = await generateWithOpenRouter(org.planCode, agent, message, execution.result);
+      if (generated) {
+        finalReply = generated.text;
+        provider = "openrouter:" + generated.model;
+        if (agent === "Studio") execution.result = { ...execution.result, generated_content: generated.text, generated_by: "openrouter", model: generated.model };
+      } else {
+        finalReply += "\\n\\nملاحظة: OpenRouter غير مضبوط في إعدادات الخادم؛ تم استخدام الرد المحلي.";
+      }
+    }
     if (execution.status === "needs_approval") {
       const { error: approvalError } = await supabase.from("agent_approvals").insert({
         organization_id: org.id, task_id: task.id, requested_action: message,
@@ -320,7 +362,7 @@ export async function POST(request: Request) {
       target_type: "agent_task", target_id: task.id,
       metadata: { agent_name: agent, status: execution.status, routing_mode: route.mode, provider: route.provider }
     });
-    return NextResponse.json({ task: updated, reply: execution.reply, intelligence: { mode: route.mode, provider: route.provider } });
+    return NextResponse.json({ task: updated, reply: finalReply, intelligence: { mode: route.mode, provider } });
   } catch (error) {
     const reason = error instanceof Error ? error.message : "حدث خطأ أثناء تنفيذ المهمة.";
     await supabase.from("agent_tasks").update({ status: "failed", result: { error: reason }, updated_at: new Date().toISOString() })
