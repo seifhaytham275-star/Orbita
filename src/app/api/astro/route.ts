@@ -265,7 +265,8 @@ export async function GET() {
   const { data: tasks, error } = await supabase.from("agent_tasks").select("id,agent_name,title,status,result,created_at")
     .eq("organization_id", org.id).order("created_at", { ascending: false }).limit(25);
   if (error) return fail("تعذر تحميل سجل المهام.", 503);
-  return NextResponse.json({ tasks: tasks ?? [], intelligence: { mode: "local_rules", provider: "orbita-local" } });
+  const availableAgents: Agent[] = org.planCode === "free" ? ["Insight", "Ledger"] : org.planCode === "pro" ? ["Insight", "Ledger", "Stock"] : ["Insight", "Ledger", "Stock", "Pulse", "Reach", "Echo", "Studio"];
+  return NextResponse.json({ tasks: tasks ?? [], planCode: org.planCode, availableAgents, features: { studio: ["max", "business"].includes(org.planCode), voice: org.planCode === "business", chatbot: org.planCode === "business", aiProvider: ["max", "business"].includes(org.planCode) ? "openrouter" : "local" }, intelligence: { mode: "local_rules", provider: "orbita-local" } });
 }
 
 export async function POST(request: Request) {
@@ -293,6 +294,8 @@ export async function POST(request: Request) {
 
   const route = await routeAgent(message, typeof rawAgent === "string" ? rawAgent as Agent : undefined);
   const agent = route.agent;
+  const planAgents: Agent[] = org.planCode === "free" ? ["Insight", "Ledger"] : org.planCode === "pro" ? ["Insight", "Ledger", "Stock"] : ["Insight", "Ledger", "Stock", "Pulse", "Reach", "Echo", "Studio"];
+  if (!planAgents.includes(agent)) return fail("الوكيل ده متاح في باقات أعلى. راجع صفحة الباقات.", 403);
   const { data: task, error: taskError } = await supabase.from("agent_tasks").insert({
     organization_id: org.id, requested_by: user.id, agent_name: agent,
     title: message.slice(0, 180), input: { message, routing_mode: route.mode, model: route.provider }, status: "running"
