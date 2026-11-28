@@ -35,7 +35,32 @@ export default function AstroWorkspace({organizationId}:{organizationId:string|n
   }catch(e){setError(e instanceof Error?e.message:"حدث خطأ.");}finally{setBusy(false);}
  }
  const selected=agents.find(a=>a.name===active);
- function startVoice(){const w=window as any;const Recognition=w.SpeechRecognition||w.webkitSpeechRecognition;if(!Recognition){setError("ميزة الصوت غير مدعومة في المتصفح الحالي.");return;}const recognition=new Recognition();recognition.lang="ar-EG";recognition.interimResults=false;recognition.maxAlternatives=1;recognition.onresult=async(event:any)=>{const spoken=event.results?.[0]?.[0]?.transcript?.trim();if(!spoken||busy||!organizationId)return;setPrompt("");setBusy(true);setError("");setMessages(old=>({...old,[active]:[...(old[active]||[]),{role:"user",text:spoken}]}));try{const response=await fetch("/api/astro",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:spoken,agent:active==="Astro"?undefined:active})});const data=await response.json();if(!response.ok)throw new Error(data.error||"تعذر تنفيذ الطلب.");const answer=data.reply||"تم استلام المهمة.";setMessages(old=>({...old,[active]:[...(old[active]||[]),{role:"assistant",text:answer}]}));if(data.task)setTasks(old=>[data.task,...old.filter(t=>t.id!==data.task.id)].slice(0,40));if(w.speechSynthesis&&w.SpeechSynthesisUtterance){const utterance=new w.SpeechSynthesisUtterance(answer);utterance.lang="ar-EG";w.speechSynthesis.cancel();w.speechSynthesis.speak(utterance);}}catch(e){setError(e instanceof Error?e.message:"حدث خطأ.");}finally{setBusy(false);}};recognition.onerror=()=>setError("لم أتمكن من التقاط الصوت. جرّب مرة أخرى.");recognition.start();}
+ type VoiceResultEvent = { results?: ArrayLike<ArrayLike<{ transcript?: string }>> };
+ type VoiceRecognition = { lang: string; interimResults: boolean; maxAlternatives: number; onresult: ((event: VoiceResultEvent) => void) | null; onerror: (() => void) | null; start: () => void };
+ type VoiceWindow = Window & { SpeechRecognition?: new () => VoiceRecognition; webkitSpeechRecognition?: new () => VoiceRecognition };
+ function startVoice(){
+  const w=window as VoiceWindow;
+  const Recognition=w.SpeechRecognition||w.webkitSpeechRecognition;
+  if(!Recognition){setError("ميزة الصوت غير مدعومة في المتصفح الحالي.");return;}
+  const recognition=new Recognition();
+  recognition.lang="ar-EG";recognition.interimResults=false;recognition.maxAlternatives=1;
+  recognition.onresult=async(event:VoiceResultEvent)=>{
+   const spoken=event.results?.[0]?.[0]?.transcript?.trim();
+   if(!spoken||busy||!organizationId)return;
+   setPrompt("");setBusy(true);setError("");
+   setMessages(old=>({...old,[active]:[...(old[active]||[]),{role:"user",text:spoken}]}));
+   try{
+    const response=await fetch("/api/astro",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:spoken,agent:active==="Astro"?undefined:active})});
+    const data=await response.json();if(!response.ok)throw new Error(data.error||"تعذر تنفيذ الطلب.");
+    const answer=data.reply||"تم استلام المهمة.";
+    setMessages(old=>({...old,[active]:[...(old[active]||[]),{role:"assistant",text:answer}]}));
+    if(data.task)setTasks(old=>[data.task,...old.filter(t=>t.id!==data.task.id)].slice(0,40));
+    if("speechSynthesis" in window){const utterance=new SpeechSynthesisUtterance(answer);utterance.lang="ar-EG";window.speechSynthesis.cancel();window.speechSynthesis.speak(utterance);}
+   }catch(e){setError(e instanceof Error?e.message:"حدث خطأ.");}finally{setBusy(false);}
+  };
+  recognition.onerror=()=>setError("لم أتمكن من التقاط الصوت. جرّب مرة أخرى.");
+  recognition.start();
+ }
  return <section className="astro-enterprise" dir="rtl">
   <aside className="astro-sidebar">
    <div className="astro-side-brand"><span className="astro-logo">O</span><div><b>ORBITA</b><small>AI WORKSPACE</small></div></div>
