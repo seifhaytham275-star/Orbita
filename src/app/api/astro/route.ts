@@ -8,6 +8,7 @@ type Agent = "Ledger" | "Echo" | "Pulse" | "Stock" | "Reach" | "Insight" | "Stud
 type OrgContext = { id: string; name: string; industry: string; role: string; planCode: string };
 
 const routing: Array<{ agent: Agent; keywords: string[] }> = [
+  { agent: "Studio", keywords: ["بوست","ريل","ستوري","reel","story","post","social media content"] },
   { agent: "Stock", keywords: ["مخزون","صنف","منتج","شراء","كمية","رصيد","سكر","أرز","رز","دقيق","زيت","جرام","غرام","كيلو","stock","inventory","product"] },
   { agent: "Pulse", keywords: ["حجز","موعد","تذكير","booking","appointment","reminder"] },
   { agent: "Ledger", keywords: ["فاتورة","حساب","مبيعات","مصروف","invoice","account","sales"] },
