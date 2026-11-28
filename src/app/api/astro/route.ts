@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { decryptUserApiKey } from "@/lib/ai/user-openrouter-key";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,7 +71,7 @@ async function routeAgent(message: string, selectedAgent?: Agent): Promise<{ age
 }
 
 type OpenRouterReply = { choices?: Array<{ message?: { content?: string | Array<{ type?: string; text?: string }> } }> };
-async function generateWithOpenRouter(planCode: string, agent: Agent, userMessage: string, groundedResult: Record<string, unknown>): Promise<{ text: string; model: string } | null> {
+async function generateWithOpenRouter(apiKey: string, planCode: string, agent: Agent, userMessage: string, groundedResult: Record<string, unknown>): Promise<{ text: string; model: string } | null> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) return null;
   const isBusiness = planCode === "business";
@@ -326,6 +327,16 @@ export async function POST(request: Request) {
   const agent = route.agent;
   const planAgents: Agent[] = org.planCode === "free" ? ["Insight", "Ledger"] : org.planCode === "pro" ? ["Insight", "Ledger", "Stock"] : ["Insight", "Ledger", "Stock", "Pulse", "Reach", "Echo", "Studio", ...(org.planCode === "business" ? ["Chatbot" as Agent] : [])];
   if (!planAgents.includes(agent)) return fail("الوكيل ده متاح في باقات أعلى. راجع صفحة الباقات.", 403);
+  let customerOpenRouterKey: string | null = null;
+  if (["max", "business"].includes(org.planCode)) {
+    const { data: keyRow, error: keyError } = await supabase.from("user_ai_provider_keys")
+      .select("encrypted_key,iv,auth_tag").eq("user_id", user.id).maybeSingle();
+    if (keyError) return fail("تعذر تحميل مفتاح OpenRouter الخاص بحسابك.", 503);
+    if (!keyRow) return fail("أضف مفتاح OpenRouter الخاص بك من الإعدادات أولًا.", 428);
+    try { customerOpenRouterKey = decryptUserApiKey(keyRow); }
+    catch { return fail("تعذر فك تشفير مفتاح OpenRouter. راجع إعداد تشفير المفاتيح على الخادم.", 503); }
+  }
+
   const { data: task, error: taskError } = await supabase.from("agent_tasks").insert({
     organization_id: org.id, requested_by: user.id, agent_name: agent,
     title: message.slice(0, 180), input: { message, routing_mode: route.mode, model: route.provider }, status: "running"
@@ -338,7 +349,7 @@ export async function POST(request: Request) {
     let provider = "orbita-local";
     if (["max", "business"].includes(org.planCode)) {
       try {
-        const generated = await generateWithOpenRouter(org.planCode, agent, message, execution.result);
+        const generated = customerOpenRouterKey ? await generateWithOpenRouter(customerOpenRouterKey, org.planCode, agent, message, execution.result) : null;
         if (generated) {
           finalReply = generated.text;
           provider = "openrouter:" + generated.model;
