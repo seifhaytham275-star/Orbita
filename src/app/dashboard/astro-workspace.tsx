@@ -1,7 +1,7 @@
 "use client";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-type AgentName = "Astro" | "Ledger" | "Echo" | "Pulse" | "Stock" | "Reach" | "Insight" | "Studio";
+type AgentName = "Astro" | "Ledger" | "Echo" | "Pulse" | "Stock" | "Reach" | "Insight" | "Studio" | "Chatbot";
 type Message = { role: "user" | "assistant"; text: string };
 type Task = { id: string; agent_name: string; title: string; status: string; created_at: string };
 const agents: { name: Exclude<AgentName,"Astro">; label: string; description: string; icon: string; prompt: string }[] = [
@@ -11,7 +11,7 @@ const agents: { name: Exclude<AgentName,"Astro">; label: string; description: st
  {name:"Stock",label:"المخزون",description:"الأصناف والكميات وحركات المخزون",icon:"▤",prompt:"اعرض حالة المخزون"},
  {name:"Reach",label:"التسويق",description:"المحتوى والحملات التسويقية",icon:"↗",prompt:"جهز فكرة تسويقية"},
  {name:"Insight",label:"التحليلات",description:"التقارير ومؤشرات الأداء",icon:"⌁",prompt:"جهز ملخص أداء الشركة"},
- {name:"Studio",label:"Orbita Studio",description:"إنشاء أفكار ومخططات Posts وReels وStories",icon:"✧",prompt:"جهز Reel عن منتج جديد"}
+ {name:"Studio",label:"Orbita Studio",description:"إنشاء Posts وReels وStories",icon:"✧",prompt:"جهز Reel عن منتج جديد"},\n {name:"Chatbot",label:"Chatbot Assistant",description:"مساعد مستقل لبيانات الشركة",icon:"◌",prompt:"ما ملخص أداء الشركة؟"}
 ];
 const statusLabel:Record<string,string>={queued:"بانتظار التنفيذ",running:"قيد التنفيذ",needs_approval:"تحتاج موافقتك",completed:"اكتملت",failed:"تعذر تنفيذها"};
 export default function AstroWorkspace({organizationId}:{organizationId:string|null}){
@@ -32,7 +32,7 @@ export default function AstroWorkspace({organizationId}:{organizationId:string|n
    if(active==="Astro"&&target!=="Astro")setNotice("Astro وجّه المهمة إلى "+target+".");
   }catch(e){setError(e instanceof Error?e.message:"حدث خطأ.");}finally{setBusy(false);}
  }
- const selected=agents.find(a=>a.name===active);\n function startVoice(){const w=window as any;const Recognition=w.SpeechRecognition||w.webkitSpeechRecognition;if(!Recognition){setError("ميزة الصوت غير مدعومة في المتصفح الحالي.");return;}const recognition=new Recognition();recognition.lang="ar-EG";recognition.interimResults=false;recognition.maxAlternatives=1;recognition.onresult=(event:any)=>{const spoken=event.results?.[0]?.[0]?.transcript;if(spoken)setPrompt(old=>old?old+" "+spoken:spoken);};recognition.onerror=()=>setError("لم أتمكن من التقاط الصوت. جرّب مرة أخرى.");recognition.start();}
+ const selected=agents.find(a=>a.name===active);\n function startVoice(){const w=window as any;const Recognition=w.SpeechRecognition||w.webkitSpeechRecognition;if(!Recognition){setError("ميزة الصوت غير مدعومة في المتصفح الحالي.");return;}const recognition=new Recognition();recognition.lang="ar-EG";recognition.interimResults=false;recognition.maxAlternatives=1;recognition.onresult=async(event:any)=>{const spoken=event.results?.[0]?.[0]?.transcript?.trim();if(!spoken||busy||!organizationId)return;setPrompt("");setBusy(true);setError("");setMessages(old=>({...old,[active]:[...(old[active]||[]),{role:"user",text:spoken}]}));try{const response=await fetch("/api/astro",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:spoken,agent:active==="Astro"?undefined:active})});const data=await response.json();if(!response.ok)throw new Error(data.error||"تعذر تنفيذ الطلب.");const answer=data.reply||"تم استلام المهمة.";setMessages(old=>({...old,[active]:[...(old[active]||[]),{role:"assistant",text:answer}]}));if(data.task)setTasks(old=>[data.task,...old.filter(t=>t.id!==data.task.id)].slice(0,40));if(w.speechSynthesis&&w.SpeechSynthesisUtterance){const utterance=new w.SpeechSynthesisUtterance(answer);utterance.lang="ar-EG";w.speechSynthesis.cancel();w.speechSynthesis.speak(utterance);}}catch(e){setError(e instanceof Error?e.message:"حدث خطأ.");}finally{setBusy(false);}};recognition.onerror=()=>setError("لم أتمكن من التقاط الصوت. جرّب مرة أخرى.");recognition.start();}
  return <section className="astro-enterprise" dir="rtl">
   <aside className="astro-sidebar">
    <div className="astro-side-brand"><span className="astro-logo">O</span><div><b>ORBITA</b><small>AI WORKSPACE</small></div></div>
@@ -55,7 +55,7 @@ export default function AstroWorkspace({organizationId}:{organizationId:string|n
      {visibleTasks.length?visibleTasks.slice(0,12).map(t=><div className="astro-task-item" key={t.id}><b>{t.title}</b><small>{statusLabel[t.status]||t.status} · {t.agent_name}</small></div>):<p className="astro-empty">لا توجد مهام في هذه المساحة حتى الآن.</p>}
     </aside>
    </div>
-   <p className="astro-local-mode">● Astro يعمل بمنطق ORBITA المحلي؛ ربط OpenRouter وميزات Business Voice تتطلب إعداد مفاتيح الخدمة في الخادم.</p>
+   <p className="astro-local-mode">● Max وBusiness يستخدمان OpenRouter عند ضبط مفتاح الخدمة وموديل كل باقة؛ Business يدعم الإدخال الصوتي والرد المنطوق.</p>
    {notice&&<p className="astro-feedback success">{notice}</p>}{error&&<p className="astro-feedback error">{error}</p>}
   </div>
  </section>;
