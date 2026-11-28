@@ -73,8 +73,7 @@ async function generateWithOpenRouter(planCode: string, agent: Agent, userMessag
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) return null;
   const isBusiness = planCode === "business";
-  const model = (isBusiness ? process.env.OPENROUTER_BUSINESS_MODEL : process.env.OPENROUTER_MAX_MODEL)?.trim();
-  if (!model) return null;
+  const model = ((isBusiness ? process.env.OPENROUTER_BUSINESS_MODEL : process.env.OPENROUTER_MAX_MODEL)?.trim()) || (isBusiness ? "anthropic/claude-sonnet-4" : "google/gemini-2.5-flash");
   const system = agent === "Studio"
     ? "You are Orbita Studio, a professional social media creative producer. Create a useful Arabic creative package for the requested Post, Reel, or Story: hook, caption, scene/slide sequence, visual direction, and CTA. Return concise, actionable Arabic. Do not claim to create an actual image/video file or publish content."
     : agent === "Chatbot"
