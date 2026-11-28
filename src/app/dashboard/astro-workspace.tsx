@@ -10,7 +10,8 @@ const agents: { name: Exclude<AgentName,"Astro">; label: string; description: st
  {name:"Pulse",label:"المواعيد",description:"الحجوزات والتذكيرات",icon:"◷",prompt:"راجع المواعيد والحجوزات"},
  {name:"Stock",label:"المخزون",description:"الأصناف والكميات وحركات المخزون",icon:"▤",prompt:"اعرض حالة المخزون"},
  {name:"Reach",label:"التسويق",description:"المحتوى والحملات التسويقية",icon:"↗",prompt:"جهز فكرة تسويقية"},
- {name:"Insight",label:"التحليلات",description:"التقارير ومؤشرات الأداء",icon:"⌁",prompt:"جهز ملخص أداء الشركة"},\n {name:"Studio",label:"Orbita Studio",description:"إنشاء أفكار ومخططات Posts وReels وStories",icon:"✧",prompt:"جهز Reel عن منتج جديد"}
+ {name:"Insight",label:"التحليلات",description:"التقارير ومؤشرات الأداء",icon:"⌁",prompt:"جهز ملخص أداء الشركة"},
+ {name:"Studio",label:"Orbita Studio",description:"إنشاء أفكار ومخططات Posts وReels وStories",icon:"✧",prompt:"جهز Reel عن منتج جديد"}
 ];
 const statusLabel:Record<string,string>={queued:"بانتظار التنفيذ",running:"قيد التنفيذ",needs_approval:"تحتاج موافقتك",completed:"اكتملت",failed:"تعذر تنفيذها"};
 export default function AstroWorkspace({organizationId}:{organizationId:string|null}){
