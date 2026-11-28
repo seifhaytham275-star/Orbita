@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type Agent = "Ledger" | "Echo" | "Pulse" | "Stock" | "Reach" | "Insight";
+type Agent = "Ledger" | "Echo" | "Pulse" | "Stock" | "Reach" | "Insight" | "Studio";
 type OrgContext = { id: string; name: string; industry: string; role: string; planCode: string };
 
 const routing: Array<{ agent: Agent; keywords: string[] }> = [
@@ -75,6 +75,12 @@ async function executeAgent(
   agent: Agent,
   message: string
 ): Promise<{ result: Record<string, unknown>; reply: string; status: "completed" | "needs_approval" }> {
+  if (agent === "Studio") {
+    const format = /ريل|reel|short video/i.test(message) ? "Reel" : /ستوري|story/i.test(message) ? "Story" : "Post";
+    const topic = message.replace(/^(?:اعمل|جهز|أنشئ|انشئ|صمم)?\\s*(?:بوست|بوستات|منشور|ريل|reel|ستوري|story)?\\s*/i, "").trim() || org.industry;
+    const brief = { format, topic, brand: org.name, industry: org.industry, hook: format === "Reel" ? "ابدأ بلقطة تلفت الانتباه خلال أول 3 ثوانٍ." : format === "Story" ? "رسالة قصيرة مع سؤال أو تصويت." : "عنوان واضح يبرز فائدة واحدة.", outline: format === "Reel" ? ["Hook","المشكلة أو الحاجة","الحل أو المنتج","دعوة لاتخاذ إجراء"] : format === "Story" ? ["افتتاحية قصيرة","ميزة أو عرض","CTA تفاعلي"] : ["Headline","Value proposition","Proof point","CTA"], caption: org.name + ": " + topic + ". تواصل معنا لمعرفة التفاصيل.", visual_direction: "استخدم ألوان وهوية الشركة، صورة واضحة للمنتج، ونصًا قليلًا عالي التباين.", note: "مسودة إبداعية؛ لم يتم نشر المحتوى أو إنشاء ملف فيديو فعلي." };
+    return { status: "completed", result: { action: "studio_content_brief", ...brief }, reply: "Orbita Studio جهز خطة " + format + " حول: " + topic + "\\n\\n" + brief.outline.join(" → ") + "\\n\\nCaption: " + brief.caption + "\\n\\nVisual: " + brief.visual_direction + "\\n\\nدي خطة محتوى أولية، مش تصميم أو فيديو نهائي منشور." };
+  }
   const sensitive = /(ادفع|تحويل|استرداد|refund|payment|delete|احذف|امسح|ابعت.*للعملاء|ارسل.*للعملاء|رسالة جماعية|mass message)/i.test(message);
   if (sensitive) {
     if (!["owner", "manager"].includes(org.role)) throw new Error("الإجراء ده يحتاج موافقة مالك الشركة أو المدير.");
@@ -271,7 +277,7 @@ export async function POST(request: Request) {
     ? (body as { message?: unknown }).message : undefined;
   const rawAgent = body && typeof body === "object" && !Array.isArray(body) && "agent" in body
     ? (body as { agent?: unknown }).agent : undefined;
-  const allowedAgents: Agent[] = ["Ledger", "Echo", "Pulse", "Stock", "Reach", "Insight"];
+  const allowedAgents: Agent[] = ["Ledger", "Echo", "Pulse", "Stock", "Reach", "Insight", "Studio"];
   if (rawAgent !== undefined && rawAgent !== null && (typeof rawAgent !== "string" || !allowedAgents.includes(rawAgent as Agent))) return fail("الوكيل المحدد غير صالح.");
   const message = typeof rawMessage === "string" ? rawMessage.trim() : "";
   if (!message || message.length > 1200) return fail("اكتب مهمة واضحة (حتى 1200 حرف).");
