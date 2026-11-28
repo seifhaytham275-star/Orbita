@@ -72,8 +72,6 @@ async function routeAgent(message: string, selectedAgent?: Agent): Promise<{ age
 
 type OpenRouterReply = { choices?: Array<{ message?: { content?: string | Array<{ type?: string; text?: string }> } }> };
 async function generateWithOpenRouter(apiKey: string, planCode: string, agent: Agent, userMessage: string, groundedResult: Record<string, unknown>): Promise<{ text: string; model: string } | null> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) return null;
   const isBusiness = planCode === "business";
   const model = ((isBusiness ? process.env.OPENROUTER_BUSINESS_MODEL : process.env.OPENROUTER_MAX_MODEL)?.trim()) || (isBusiness ? "anthropic/claude-sonnet-4" : "google/gemini-2.5-flash");
   const system = agent === "Studio"
